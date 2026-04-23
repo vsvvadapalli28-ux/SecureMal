@@ -1,0 +1,9 @@
+target/
+uploads/
+reports/
+__pycache__/
+.idea/
+.vscode/
+*.pyc
+.DS_Store
+Thumbs.db
