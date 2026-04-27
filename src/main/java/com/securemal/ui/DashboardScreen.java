@@ -26,36 +26,40 @@ public class DashboardScreen extends JPanel {
     private DefaultTableModel tableModel;
     private FileManagementService fileService;
     private List<UploadedFile> currentFiles;
+    private JTextField txtSelectedFile;
 
     public DashboardScreen(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
         this.fileService = new FileManagementService();
-        
-        setBackground(Config.COLOR_BG_DARK);
+
+        setBackground(Config.COLOR_CONTENT);
         setLayout(new BorderLayout());
 
-        // Top Bar
-        JPanel topBar = new JPanel(new BorderLayout());
-        topBar.setBackground(Config.COLOR_BG_DARK);
-        topBar.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(Config.COLOR_HEADER);
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JLabel title = new JLabel("🔒 SecureMal");
-        title.setFont(new Font("SansSerif", Font.BOLD, 18));
-        title.setForeground(Config.COLOR_TEXT_WHITE);
-        topBar.add(title, BorderLayout.WEST);
+        JLabel title = new JLabel("🔒 SecureMal - Malware Analysis Sandbox");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(Color.WHITE);
+        headerPanel.add(title, BorderLayout.WEST);
 
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        userPanel.setBackground(Config.COLOR_BG_DARK);
-        
+        userPanel.setBackground(Config.COLOR_HEADER);
+
         lblWelcome = new JLabel("Welcome, User");
-        lblWelcome.setForeground(Config.COLOR_TEXT_WHITE);
-        lblWelcome.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        
+        lblWelcome.setForeground(Color.WHITE);
+        lblWelcome.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
         JButton btnLogout = new JButton("Logout");
-        btnLogout.setBackground(new Color(200, 50, 50));
+        btnLogout.setBackground(Config.COLOR_BUTTON);
         btnLogout.setForeground(Color.WHITE);
+        btnLogout.setOpaque(true);
+        btnLogout.setBorderPainted(false);
         btnLogout.setFocusPainted(false);
-        btnLogout.setMargin(new Insets(2, 10, 2, 10));
+        btnLogout.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        btnLogout.setMargin(new Insets(5, 15, 5, 15));
         btnLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnLogout.addActionListener(e -> {
             AppState.getInstance().logout();
@@ -65,12 +69,52 @@ public class DashboardScreen extends JPanel {
         userPanel.add(lblWelcome);
         userPanel.add(Box.createRigidArea(new Dimension(10, 0)));
         userPanel.add(btnLogout);
-        topBar.add(userPanel, BorderLayout.EAST);
+        headerPanel.add(userPanel, BorderLayout.EAST);
 
-        add(topBar, BorderLayout.NORTH);
+        add(headerPanel, BorderLayout.NORTH);
 
-        // Center Table Area
-        String[] columns = {"#", "File Name", "Size", "Uploaded", "Risk", "Status", "Action"};
+        // Center Content
+        JPanel centerPanel = new JPanel();
+        centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
+        centerPanel.setBackground(Config.COLOR_CONTENT);
+        centerPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Upload Panel
+        JPanel uploadPanel = new JPanel(new GridBagLayout());
+        uploadPanel.setBackground(Config.COLOR_CONTENT);
+        uploadPanel.setBorder(BorderFactory.createTitledBorder("File Upload"));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+
+        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.WEST;
+        JLabel lblSelectedFile = new JLabel("Selected File:");
+        lblSelectedFile.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        uploadPanel.add(lblSelectedFile, gbc);
+
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        txtSelectedFile = new JTextField(30);
+        txtSelectedFile.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtSelectedFile.setEditable(false);
+        uploadPanel.add(txtSelectedFile, gbc);
+
+        gbc.gridx = 2; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        JButton btnBrowse = new JButton("Browse");
+        btnBrowse.setBackground(Config.COLOR_BUTTON);
+        btnBrowse.setForeground(Color.WHITE);
+        btnBrowse.setOpaque(true);
+        btnBrowse.setBorderPainted(false);
+        btnBrowse.setFocusPainted(false);
+        btnBrowse.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        btnBrowse.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnBrowse.addActionListener(e -> performUpload());
+        uploadPanel.add(btnBrowse, gbc);
+
+        centerPanel.add(uploadPanel);
+        centerPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // Status Table
+        String[] columns = { "#", "File Name", "Size", "Uploaded", "Risk", "Status", "Action" };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -79,23 +123,49 @@ public class DashboardScreen extends JPanel {
         };
 
         fileTable = new JTable(tableModel);
-        fileTable.setBackground(Config.COLOR_ACCENT);
-        fileTable.setForeground(Config.COLOR_TEXT_WHITE);
+        fileTable.setBackground(Config.COLOR_CONTENT);
+        fileTable.setForeground(Color.BLACK);
         fileTable.setRowHeight(35);
-        fileTable.getTableHeader().setBackground(new Color(10, 30, 60));
-        fileTable.getTableHeader().setForeground(Config.COLOR_TEXT_WHITE);
-        fileTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 14));
-        fileTable.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        fileTable.setSelectionBackground(new Color(30, 80, 150));
-        fileTable.setSelectionForeground(Color.WHITE);
-        
+        fileTable.getTableHeader().setBackground(Config.COLOR_HEADER);
+        fileTable.getTableHeader().setForeground(Color.WHITE);
+        fileTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
+        fileTable.getTableHeader().setOpaque(true);
+
+        // Force header colors via custom renderer
+        javax.swing.table.DefaultTableCellRenderer headerRenderer =
+                new javax.swing.table.DefaultTableCellRenderer() {
+                    @Override
+                    public Component getTableCellRendererComponent(
+                            JTable table, Object value, boolean isSelected,
+                            boolean hasFocus, int row, int column) {
+                        JLabel lbl = (JLabel) super.getTableCellRendererComponent(
+                                table, value, isSelected, hasFocus, row, column);
+                        lbl.setBackground(Config.COLOR_HEADER);
+                        lbl.setForeground(Color.WHITE);
+                        lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                        lbl.setOpaque(true);
+                        lbl.setBorder(BorderFactory.createCompoundBorder(
+                                BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(50, 70, 100)),
+                                BorderFactory.createEmptyBorder(0, 8, 0, 8)));
+                        lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                        return lbl;
+                    }
+                };
+        for (int i = 0; i < tableModel.getColumnCount(); i++) {
+            fileTable.getColumnModel().getColumn(i).setHeaderRenderer(headerRenderer);
+        }
+        fileTable.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        fileTable.setSelectionBackground(new Color(200, 220, 240));
+        fileTable.setSelectionForeground(Color.BLACK);
+
         // Custom Row Renderer for alternating colors
         fileTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                    boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 if (!isSelected) {
-                    c.setBackground(row % 2 == 0 ? Config.COLOR_ACCENT : new Color(10, 42, 80));
+                    c.setBackground(row % 2 == 0 ? Color.WHITE : new Color(245, 245, 245));
                 }
                 return c;
             }
@@ -104,8 +174,10 @@ public class DashboardScreen extends JPanel {
         // Custom Risk Badge Renderer
         fileTable.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                    boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row,
+                        column);
                 label.setOpaque(true);
                 label.setHorizontalAlignment(SwingConstants.CENTER);
                 String risk = value != null ? value.toString() : "Pending";
@@ -119,8 +191,8 @@ public class DashboardScreen extends JPanel {
                     label.setBackground(Config.COLOR_RISK_LOW);
                     label.setForeground(Color.GREEN);
                 } else {
-                    label.setBackground(Color.DARK_GRAY);
-                    label.setForeground(Color.LIGHT_GRAY);
+                    label.setBackground(Color.LIGHT_GRAY);
+                    label.setForeground(Color.BLACK);
                 }
                 return label;
             }
@@ -146,27 +218,21 @@ public class DashboardScreen extends JPanel {
             }
         });
 
+        // Set minimum column widths
+        fileTable.getColumnModel().getColumn(0).setMaxWidth(40);   // #
+        fileTable.getColumnModel().getColumn(2).setPreferredWidth(90);  // Size
+        fileTable.getColumnModel().getColumn(3).setPreferredWidth(140); // Uploaded
+        fileTable.getColumnModel().getColumn(4).setPreferredWidth(80);  // Risk
+        fileTable.getColumnModel().getColumn(5).setPreferredWidth(80);  // Status
+        fileTable.getColumnModel().getColumn(6).setMinWidth(230);        // Action — wide enough for both buttons
+        fileTable.getColumnModel().getColumn(6).setPreferredWidth(230);
+
         JScrollPane scrollPane = new JScrollPane(fileTable);
-        scrollPane.getViewport().setBackground(Config.COLOR_BG_DARK);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-        add(scrollPane, BorderLayout.CENTER);
+        scrollPane.getViewport().setBackground(Config.COLOR_CONTENT);
+        scrollPane.setBorder(BorderFactory.createTitledBorder("Analysis Status"));
+        centerPanel.add(scrollPane);
 
-        // Bottom Bar
-        JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        bottomBar.setBackground(Config.COLOR_BG_DARK);
-        bottomBar.setBorder(BorderFactory.createEmptyBorder(15, 20, 20, 20));
-
-        JButton btnUpload = new JButton("📁 Upload File");
-        btnUpload.setFont(new Font("SansSerif", Font.BOLD, 16));
-        btnUpload.setBackground(Config.COLOR_ACCENT);
-        btnUpload.setForeground(Color.WHITE);
-        btnUpload.setPreferredSize(new Dimension(250, 45));
-        btnUpload.setFocusPainted(false);
-        btnUpload.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnUpload.addActionListener(e -> performUpload());
-
-        bottomBar.add(btnUpload);
-        add(bottomBar, BorderLayout.SOUTH);
+        add(centerPanel, BorderLayout.CENTER);
     }
 
     @Override
@@ -183,10 +249,11 @@ public class DashboardScreen extends JPanel {
 
     public void refreshTable() {
         User currentUser = AppState.getInstance().getCurrentUser();
-        if (currentUser == null) return;
+        if (currentUser == null)
+            return;
 
         tableModel.setRowCount(0);
-        Object[] loadingRow = {"", "Loading files...", "", "", "", "", ""};
+        Object[] loadingRow = { "", "Loading files...", "", "", "", "", "" };
         tableModel.addRow(loadingRow);
 
         SwingWorker<List<UploadedFile>, Void> worker = new SwingWorker<List<UploadedFile>, Void>() {
@@ -213,9 +280,13 @@ public class DashboardScreen extends JPanel {
                         };
                         tableModel.addRow(rowData);
                     }
+                    fileTable.revalidate();
+                    fileTable.repaint();
                 } catch (Exception e) {
                     e.printStackTrace();
                     tableModel.setRowCount(0);
+                    fileTable.revalidate();
+                    fileTable.repaint();
                 }
             }
         };
@@ -224,24 +295,27 @@ public class DashboardScreen extends JPanel {
 
     private void performUpload() {
         JFileChooser chooser = new JFileChooser();
-        FileNameExtensionFilter filter = new FileNameExtensionFilter("Executables & Documents", 
+        FileNameExtensionFilter filter = new FileNameExtensionFilter("Executables & Documents",
                 "exe", "dll", "bat", "ps1", "vbs", "js", "zip", "pdf", "docx", "xlsx");
         chooser.setFileFilter(filter);
-        
+
         int result = chooser.showOpenDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = chooser.getSelectedFile();
+            txtSelectedFile.setText(selectedFile.getAbsolutePath());
             User currentUser = AppState.getInstance().getCurrentUser();
-            
+
             // Show progress dialog
             JDialog progressDialog = new JDialog(mainFrame, "Uploading", true);
             JProgressBar progressBar = new JProgressBar();
             progressBar.setIndeterminate(true);
-            progressDialog.add(new JLabel("Uploading file, please wait..."), BorderLayout.NORTH);
+            JLabel lblUploading = new JLabel("Uploading file, please wait...");
+            lblUploading.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            progressDialog.add(lblUploading, BorderLayout.NORTH);
             progressDialog.add(progressBar, BorderLayout.CENTER);
             progressDialog.setSize(300, 100);
             progressDialog.setLocationRelativeTo(this);
-            
+
             SwingWorker<UploadedFile, Void> worker = new SwingWorker<UploadedFile, Void>() {
                 @Override
                 protected UploadedFile doInBackground() throws Exception {
@@ -255,20 +329,21 @@ public class DashboardScreen extends JPanel {
                         UploadedFile uf = get();
                         if (uf != null) {
                             refreshTable();
-                            int opt = JOptionPane.showConfirmDialog(DashboardScreen.this, 
-                                    "File uploaded successfully! Analyse now?", 
+                            int opt = JOptionPane.showConfirmDialog(DashboardScreen.this,
+                                    "File uploaded successfully! Analyse now?",
                                     "Upload Complete", JOptionPane.YES_NO_CANCEL_OPTION);
                             if (opt == JOptionPane.YES_OPTION) {
                                 AnalysisController.runStaticAnalysis(uf.getId(), DashboardScreen.this);
                             } else if (opt == JOptionPane.NO_OPTION) {
                                 int dynOpt = JOptionPane.showConfirmDialog(DashboardScreen.this,
-                                        "Run Dynamic Analysis (VM Sandbox) instead?", "Dynamic Analysis", JOptionPane.YES_NO_OPTION);
+                                        "Run Dynamic Analysis (VM Sandbox) instead?", "Dynamic Analysis",
+                                        JOptionPane.YES_NO_OPTION);
                                 if (dynOpt == JOptionPane.YES_OPTION) {
                                     AnalysisController.runDynamicAnalysis(uf.getId(), DashboardScreen.this);
                                 }
                             }
                         } else {
-                            JOptionPane.showMessageDialog(DashboardScreen.this, 
+                            JOptionPane.showMessageDialog(DashboardScreen.this,
                                     "Error uploading file.", "Error", JOptionPane.ERROR_MESSAGE);
                         }
                     } catch (Exception e) {
@@ -281,51 +356,62 @@ public class DashboardScreen extends JPanel {
         }
     }
 
-    // Custom Button Renderer
+    // Custom Button Renderer — always paints colors explicitly on every call
     class ButtonRenderer extends JPanel implements TableCellRenderer {
         private JButton btnStatic;
         private JButton btnDynamic;
 
         public ButtonRenderer() {
-            setLayout(new FlowLayout(FlowLayout.CENTER, 5, 0));
+            setLayout(new FlowLayout(FlowLayout.CENTER, 4, 3));
             setOpaque(true);
+
             btnStatic = new JButton("View Report");
             btnStatic.setFocusPainted(false);
-            btnStatic.setFont(new Font("SansSerif", Font.BOLD, 10));
+            btnStatic.setOpaque(true);
+            btnStatic.setBorderPainted(false);
+            btnStatic.setFont(new Font("Segoe UI", Font.BOLD, 10));
 
             btnDynamic = new JButton("Dynamic Analysis");
             btnDynamic.setFocusPainted(false);
-            btnDynamic.setFont(new Font("SansSerif", Font.BOLD, 10));
+            btnDynamic.setOpaque(true);
+            btnDynamic.setBorderPainted(false);
+            btnDynamic.setBackground(Config.COLOR_BUTTON);
+            btnDynamic.setForeground(Color.WHITE);
+            btnDynamic.setFont(new Font("Segoe UI", Font.BOLD, 10));
 
             add(btnStatic);
             add(btnDynamic);
         }
 
+        @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
-                                                       boolean isSelected, boolean hasFocus, int row, int column) {
-            if (isSelected) {
-                setBackground(table.getSelectionBackground());
-            } else {
-                setBackground(row % 2 == 0 ? Config.COLOR_ACCENT : new Color(10, 42, 80));
-            }
-            
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            // Always repaint panel background explicitly
+            Color rowBg = (row % 2 == 0) ? Color.WHITE : new Color(245, 245, 245);
+            setBackground(isSelected ? table.getSelectionBackground() : rowBg);
+
+            boolean isAnalysed = false;
             if (currentFiles != null && currentFiles.size() > row) {
                 UploadedFile uf = currentFiles.get(row);
-                if ("Analysed".equals(uf.getStatus())) {
-                    btnStatic.setBackground(new Color(40, 160, 80));
-                    btnStatic.setForeground(Color.WHITE);
-                    btnStatic.setEnabled(true);
-                } else {
-                    btnStatic.setBackground(Color.GRAY);
-                    btnStatic.setForeground(Color.DARK_GRAY);
-                    btnStatic.setEnabled(false);
-                }
-                
-                // Dynamic Analysis always available once uploaded
-                btnDynamic.setBackground(new Color(200, 100, 30));
-                btnDynamic.setForeground(Color.WHITE);
-                btnDynamic.setEnabled(true);
+                isAnalysed = "Analysed".equals(uf.getStatus());
             }
+
+            // View Report — orange when analysed, grey when pending — always explicit
+            if (isAnalysed) {
+                btnStatic.setBackground(Config.COLOR_BUTTON);
+                btnStatic.setForeground(Color.WHITE);
+                btnStatic.setEnabled(true);
+            } else {
+                btnStatic.setBackground(new Color(200, 200, 200));
+                btnStatic.setForeground(new Color(100, 100, 100));
+                btnStatic.setEnabled(false);
+            }
+
+            // Dynamic Analysis — always orange
+            btnDynamic.setBackground(Config.COLOR_BUTTON);
+            btnDynamic.setForeground(Color.WHITE);
+            btnDynamic.setEnabled(true);
+
             return this;
         }
     }
@@ -340,12 +426,15 @@ public class DashboardScreen extends JPanel {
 
         public ButtonEditor(JCheckBox checkBox) {
             super(checkBox);
-            panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+            panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 3));
             panel.setOpaque(true);
-            panel.setBackground(Config.COLOR_ACCENT);
+            panel.setBackground(Color.WHITE);
 
             btnStatic = new JButton("View Report");
             btnStatic.setFocusPainted(false);
+            btnStatic.setOpaque(true);
+            btnStatic.setBorderPainted(false);
+            btnStatic.setFont(new Font("Segoe UI", Font.BOLD, 10));
             btnStatic.addActionListener(e -> {
                 fireEditingStopped();
                 if (currentFiles != null && currentFiles.size() > currentRow) {
@@ -358,8 +447,11 @@ public class DashboardScreen extends JPanel {
 
             btnDynamic = new JButton("Dynamic Analysis");
             btnDynamic.setFocusPainted(false);
-            btnDynamic.setBackground(new Color(200, 100, 30));
+            btnDynamic.setOpaque(true);
+            btnDynamic.setBorderPainted(false);
+            btnDynamic.setBackground(Config.COLOR_BUTTON);
             btnDynamic.setForeground(Color.WHITE);
+            btnDynamic.setFont(new Font("Segoe UI", Font.BOLD, 10));
             btnDynamic.addActionListener(e -> {
                 fireEditingStopped();
                 if (currentFiles != null && currentFiles.size() > currentRow) {
@@ -372,18 +464,37 @@ public class DashboardScreen extends JPanel {
             panel.add(btnDynamic);
         }
 
+        @Override
         public Component getTableCellEditorComponent(JTable table, Object value,
-                                                     boolean isSelected, int row, int column) {
+                boolean isSelected, int row, int column) {
             currentRow = row;
+
+            // Sync enabled state with current data
+            boolean isAnalysed = currentFiles != null && currentFiles.size() > row
+                    && "Analysed".equals(currentFiles.get(row).getStatus());
+            if (isAnalysed) {
+                btnStatic.setBackground(Config.COLOR_BUTTON);
+                btnStatic.setForeground(Color.WHITE);
+                btnStatic.setEnabled(true);
+            } else {
+                btnStatic.setBackground(new Color(200, 200, 200));
+                btnStatic.setForeground(new Color(100, 100, 100));
+                btnStatic.setEnabled(false);
+            }
+            btnDynamic.setBackground(Config.COLOR_BUTTON);
+            btnDynamic.setForeground(Color.WHITE);
+
             isPushed = true;
             return panel;
         }
 
+        @Override
         public Object getCellEditorValue() {
             isPushed = false;
             return "Actions";
         }
 
+        @Override
         public boolean stopCellEditing() {
             isPushed = false;
             return super.stopCellEditing();

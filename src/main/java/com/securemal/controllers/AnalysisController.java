@@ -18,9 +18,31 @@ import java.sql.ResultSet;
 
 public class AnalysisController {
     
+    /**
+     * Returns the project root directory — the folder containing the JAR or,
+     * during development, the Maven working directory.
+     */
+    private static File getProjectRoot() {
+        try {
+            // When running as a JAR, locate the JAR and use its parent as root
+            java.net.URL location = AnalysisController.class
+                    .getProtectionDomain().getCodeSource().getLocation();
+            File jarFile = new File(location.toURI());
+            File parent = jarFile.getParentFile(); // target/
+            if (parent != null && parent.getParentFile() != null) {
+                return parent.getParentFile(); // project root
+            }
+        } catch (Exception ignored) {}
+        // Fallback: use the JVM's current working directory
+        return new File(System.getProperty("user.dir"));
+    }
+
     public static String runScript(String... command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder(command);
-        pb.directory(new File("."));
+        File projectRoot = getProjectRoot();
+        pb.directory(projectRoot);
+        System.out.println("[AnalysisController] Working dir: " + projectRoot.getAbsolutePath());
+        System.out.println("[AnalysisController] Command: " + String.join(" ", command));
         Process process = pb.start();
 
         StringBuilder output = new StringBuilder();
@@ -41,9 +63,15 @@ public class AnalysisController {
 
         process.waitFor();
         if (errors.length() > 0) {
-            System.err.println("Python stderr: " + errors.toString());
+            System.err.println("[Python stderr]: " + errors.toString());
         }
-        return output.toString().trim();
+
+        String result = output.toString().trim();
+        System.out.println("[AnalysisController] Output length: " + result.length() + " chars");
+        if (result.isEmpty()) {
+            throw new RuntimeException("Python script returned empty output. stderr: " + errors.toString().trim());
+        }
+        return result;
     }
 
     public static String getFilePath(int fileId) {
@@ -84,7 +112,11 @@ public class AnalysisController {
             if (rootObj.has("error")) throw new RuntimeException("Python error: " + rootObj.get("error").getAsString());
 
             ReportService reportService = new ReportService();
-            return reportService.saveReport(fileId, jsonResult);
+            AnalysisReport report = reportService.saveReport(fileId, jsonResult);
+            if (report == null) {
+                throw new RuntimeException("Report service failed to save analysis output for file ID " + fileId);
+            }
+            return report;
         } catch (Exception e) {
             throw new RuntimeException("Failed to run python analyzer.", e);
         }
@@ -117,7 +149,10 @@ public class AnalysisController {
                 rootObj.addProperty("analysis_type", "Dynamic Analysis");
                 
                 ReportService reportService = new ReportService();
-                reportService.saveReport(fileId, rootObj.toString());
+                AnalysisReport report = reportService.saveReport(fileId, rootObj.toString());
+                if (report == null) {
+                    throw new RuntimeException("Report service failed to save dynamic analysis output for file ID " + fileId);
+                }
                 return null;
             }
 
@@ -149,7 +184,8 @@ public class AnalysisController {
             protected void done() {
                 try {
                     get(); // Check for exceptions
-                    dashboard.refreshTable();
+                    // Refresh table immediately on the EDT before showing dialog
+                    javax.swing.SwingUtilities.invokeLater(() -> dashboard.refreshTable());
                     javax.swing.JOptionPane.showMessageDialog(dashboard, "Analysis Complete!", "Success", javax.swing.JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception e) {
                     e.printStackTrace();

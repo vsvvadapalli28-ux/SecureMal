@@ -34,18 +34,31 @@ public class ReportService {
 
         try {
             JsonObject root = JsonParser.parseString(jsonResult).getAsJsonObject();
-            
-            String md5 = root.has("md5_hash") && !root.get("md5_hash").isJsonNull() ? root.get("md5_hash").getAsString() : "";
-            String sha256 = root.has("sha256_hash") && !root.get("sha256_hash").isJsonNull() ? root.get("sha256_hash").getAsString() : "";
-            String fileType = root.has("file_type") && !root.get("file_type").isJsonNull() ? root.get("file_type").getAsString() : "";
+
+            String md5 = root.has("md5_hash") && !root.get("md5_hash").isJsonNull() ? root.get("md5_hash").getAsString()
+                    : "";
+            String sha256 = root.has("sha256_hash") && !root.get("sha256_hash").isJsonNull()
+                    ? root.get("sha256_hash").getAsString()
+                    : "";
+            String fileType = root.has("file_type") && !root.get("file_type").isJsonNull()
+                    ? root.get("file_type").getAsString()
+                    : "";
             int riskScore = root.has("risk_score") ? root.get("risk_score").getAsInt() : 0;
-            String riskLabel = root.has("risk_label") && !root.get("risk_label").isJsonNull() ? root.get("risk_label").getAsString() : "Low";
-            String plainSummary = root.has("plain_summary") && !root.get("plain_summary").isJsonNull() ? root.get("plain_summary").getAsString() : "";
+            String riskLabel = root.has("risk_label") && !root.get("risk_label").isJsonNull()
+                    ? root.get("risk_label").getAsString()
+                    : "Low";
+            String plainSummary = root.has("plain_summary") && !root.get("plain_summary").isJsonNull()
+                    ? root.get("plain_summary").getAsString()
+                    : "";
             String timeline = root.has("timeline") ? root.getAsJsonArray("timeline").toString() : "[]";
-            String suspiciousStrings = root.has("suspicious_strings") ? root.getAsJsonArray("suspicious_strings").toString() : "[]";
+            String suspiciousStrings = root.has("suspicious_strings")
+                    ? root.getAsJsonArray("suspicious_strings").toString()
+                    : "[]";
             String peInfo = root.has("pe_info") ? root.getAsJsonObject("pe_info").toString() : "{}";
-            String analysisType = root.has("analysis_type") && !root.get("analysis_type").isJsonNull() ? root.get("analysis_type").getAsString() : "Static Analysis";
-            
+            String analysisType = root.has("analysis_type") && !root.get("analysis_type").isJsonNull()
+                    ? root.get("analysis_type").getAsString()
+                    : "Static Analysis";
+
             conn = DBConnection.getInstance().getConnection();
             String sql = "INSERT INTO reports (file_id, md5_hash, sha256_hash, file_type, risk_score, risk_label, plain_summary, timeline, suspicious_strings, pe_info, analysis_type, raw_result) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
@@ -63,20 +76,25 @@ public class ReportService {
             pstmt.setString(12, jsonResult);
 
             int rows = pstmt.executeUpdate();
-            if (rows > 0) {
-                rs = pstmt.getGeneratedKeys();
-                if (rs.next()) {
-                    int newId = rs.getInt(1);
-                    return getReportById(newId);
-                }
+            if (rows == 0) {
+                throw new RuntimeException("Failed to insert report for file ID " + fileId);
             }
+            rs = pstmt.getGeneratedKeys();
+            if (rs != null && rs.next()) {
+                int newId = rs.getInt(1);
+                AnalysisReport report = getReportById(newId);
+                if (report == null) {
+                    throw new RuntimeException("Inserted report could not be loaded for report ID " + newId);
+                }
+                return report;
+            }
+            throw new RuntimeException("Failed to obtain generated report ID for file ID " + fileId);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to save analysis report for file ID " + fileId, e);
         } finally {
             DBHelper.closeQuietly(rs);
             DBHelper.closeQuietly(pstmt);
         }
-        return null;
     }
 
     public AnalysisReport getReport(int fileId) {
@@ -170,7 +188,8 @@ public class ReportService {
     // PDF Export Logic
     public void exportReportAsPDF(int reportId, String outputPath) {
         AnalysisReport report = getReportById(reportId);
-        if (report == null) return;
+        if (report == null)
+            return;
 
         try (PDDocument document = new PDDocument()) {
             PDType1Font fontNormal = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
@@ -179,7 +198,7 @@ public class ReportService {
 
             final float MARGIN = 50;
             final float START_Y = PDRectangle.A4.getHeight() - MARGIN;
-            
+
             // State
             PDPage page = new PDPage(PDRectangle.A4);
             document.addPage(page);
@@ -188,7 +207,7 @@ public class ReportService {
 
             // Helper to check page break
             currentY = checkPageBreak(document, contentStream, page, currentY, MARGIN, START_Y, fontNormal);
-            
+
             // 1. Title
             contentStream.beginText();
             contentStream.setFont(fontBold, 20);
@@ -225,8 +244,10 @@ public class ReportService {
             contentStream.beginText();
             contentStream.setFont(fontBold, 14);
             Color riskColor = Color.GREEN;
-            if (report.getRiskScore() >= 75) riskColor = Color.RED;
-            else if (report.getRiskScore() >= 40) riskColor = Color.ORANGE;
+            if (report.getRiskScore() >= 75)
+                riskColor = Color.RED;
+            else if (report.getRiskScore() >= 40)
+                riskColor = Color.ORANGE;
             contentStream.setNonStrokingColor(riskColor);
             contentStream.newLineAtOffset(MARGIN, currentY);
             contentStream.showText("Risk Score: " + report.getRiskScore() + " / 100 — " + report.getRiskLabel());
@@ -242,10 +263,12 @@ public class ReportService {
             contentStream.endText();
             currentY -= 20;
 
-            // We just use a basic replacement for PDF simplicity rather than inline mixed-fonts, 
+            // We just use a basic replacement for PDF simplicity rather than inline
+            // mixed-fonts,
             // since PDFBox inline mixed fonts requires careful coordinate tracking.
             String plainTextSummary = report.getPlainSummary().replace("**", "");
-            currentY = drawWrappedText(document, contentStream, page, plainTextSummary, fontNormal, 11, MARGIN, currentY, START_Y);
+            currentY = drawWrappedText(document, contentStream, page, plainTextSummary, fontNormal, 11, MARGIN,
+                    currentY, START_Y);
             currentY -= 20;
 
             // 5. Timeline Section
@@ -273,12 +296,14 @@ public class ReportService {
                     contentStream.endText();
                     currentY -= 15;
 
-                    currentY = drawWrappedText(document, contentStream, page, msg, fontNormal, 11, MARGIN + 20, currentY, START_Y);
-                    
+                    currentY = drawWrappedText(document, contentStream, page, msg, fontNormal, 11, MARGIN + 20,
+                            currentY, START_Y);
+
                     contentStream.setNonStrokingColor(150, 150, 150);
-                    currentY = drawWrappedText(document, contentStream, page, meaning, fontNormal, 10, MARGIN + 20, currentY, START_Y);
+                    currentY = drawWrappedText(document, contentStream, page, meaning, fontNormal, 10, MARGIN + 20,
+                            currentY, START_Y);
                     contentStream.setNonStrokingColor(Color.BLACK);
-                    
+
                     currentY -= 6;
                 }
             } catch (Exception e) {
@@ -311,19 +336,22 @@ public class ReportService {
         }
     }
 
-    private float drawWrappedText(PDDocument doc, PDPageContentStream contentStream, PDPage page, String text, PDType1Font font, int fontSize, float startX, float startY, float topY) throws IOException {
+    private float drawWrappedText(PDDocument doc, PDPageContentStream contentStream, PDPage page, String text,
+            PDType1Font font, int fontSize, float startX, float startY, float topY) throws IOException {
         float leading = 1.5f * fontSize;
         float width = PDRectangle.A4.getWidth() - 50 - startX; // margin right = 50
         List<String> lines = new ArrayList<>();
         int lastSpace = -1;
-        
+
         while (text.length() > 0) {
             int spaceIndex = text.indexOf(' ', lastSpace + 1);
-            if (spaceIndex < 0) spaceIndex = text.length();
+            if (spaceIndex < 0)
+                spaceIndex = text.length();
             String subString = text.substring(0, spaceIndex);
             float size = font.getStringWidth(subString) / 1000 * fontSize;
             if (size > width) {
-                if (lastSpace < 0) lastSpace = spaceIndex;
+                if (lastSpace < 0)
+                    lastSpace = spaceIndex;
                 subString = text.substring(0, lastSpace);
                 lines.add(subString);
                 text = text.substring(lastSpace).trim();
@@ -341,9 +369,10 @@ public class ReportService {
         contentStream.setLeading(leading);
         contentStream.newLineAtOffset(startX, startY);
         for (String line : lines) {
-            // Very rudimentary encoding sanitization to avoid PDFBox crashes on unmapped chars
+            // Very rudimentary encoding sanitization to avoid PDFBox crashes on unmapped
+            // chars
             StringBuilder sanitized = new StringBuilder();
-            for(int i = 0; i < line.length(); i++) {
+            for (int i = 0; i < line.length(); i++) {
                 if (font.hasGlyph(line.charAt(i))) {
                     sanitized.append(line.charAt(i));
                 } else {
@@ -358,15 +387,17 @@ public class ReportService {
         return startY;
     }
 
-    private float checkPageBreak(PDDocument doc, PDPageContentStream currentStream, PDPage page, float currentY, float margin, float startY, PDType1Font font) throws IOException {
+    private float checkPageBreak(PDDocument doc, PDPageContentStream currentStream, PDPage page, float currentY,
+            float margin, float startY, PDType1Font font) throws IOException {
         if (currentY < 60) {
             currentStream.close();
             PDPage newPage = new PDPage(PDRectangle.A4);
             doc.addPage(newPage);
-            // Replace stream reference for the caller requires careful handling, 
-            // since java is pass-by-value. 
+            // Replace stream reference for the caller requires careful handling,
+            // since java is pass-by-value.
             // Due to structure, we will just return a flag or we can't easily swap streams.
-            // Simplified: we won't strictly paginate inside paragraphs here to avoid deep refactoring.
+            // Simplified: we won't strictly paginate inside paragraphs here to avoid deep
+            // refactoring.
             return startY;
         }
         return currentY;
@@ -375,7 +406,8 @@ public class ReportService {
     private void drawFooter(PDDocument document) throws IOException {
         PDType1Font fontNormal = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
         for (PDPage p : document.getPages()) {
-            PDPageContentStream cs = new PDPageContentStream(document, p, PDPageContentStream.AppendMode.APPEND, true, true);
+            PDPageContentStream cs = new PDPageContentStream(document, p, PDPageContentStream.AppendMode.APPEND, true,
+                    true);
             cs.beginText();
             cs.setFont(fontNormal, 8);
             cs.setNonStrokingColor(150, 150, 150);

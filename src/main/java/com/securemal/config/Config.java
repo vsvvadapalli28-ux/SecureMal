@@ -32,6 +32,11 @@ public class Config {
     public static final Color COLOR_HIGHLIGHT = Color.decode("#e94560");
     public static final Color COLOR_TEXT_WHITE = Color.decode("#ffffff");
     
+    // New UI Colors for redesign
+    public static final Color COLOR_HEADER = Color.decode("#1B2A4A");
+    public static final Color COLOR_CONTENT = Color.WHITE;
+    public static final Color COLOR_BUTTON = Color.decode("#FF6B35");
+    
     // Risk Level Colors
     public static final Color COLOR_RISK_HIGH = Color.decode("#2d0000"); // Red Tint
     public static final Color COLOR_RISK_MEDIUM = Color.decode("#2d2200"); // Orange Tint
