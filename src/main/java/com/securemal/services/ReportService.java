@@ -1,19 +1,5 @@
 package com.securemal.services;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.securemal.db.DBConnection;
-import com.securemal.db.DBHelper;
-import com.securemal.models.AnalysisReport;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
-
 import java.awt.Color;
 import java.io.IOException;
 import java.sql.Connection;
@@ -24,6 +10,20 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.securemal.db.DBConnection;
+import com.securemal.db.DBHelper;
+import com.securemal.models.AnalysisReport;
 
 public class ReportService {
 
@@ -58,6 +58,32 @@ public class ReportService {
             String analysisType = root.has("analysis_type") && !root.get("analysis_type").isJsonNull()
                     ? root.get("analysis_type").getAsString()
                     : "Static Analysis";
+
+            // Generate dynamic summary
+            StringBuilder dynamicSummary = new StringBuilder();
+            dynamicSummary.append("**File Analysis Summary**\n\n");
+            dynamicSummary.append("**File Type:** ").append(fileType).append("\n");
+            dynamicSummary.append("**Risk Assessment:** ").append(riskLabel).append(" (Score: ").append(riskScore).append("/100)\n\n");
+            if (!suspiciousStrings.equals("[]") && suspiciousStrings.length() > 2) {
+                dynamicSummary.append("**Suspicious Strings Detected:** Yes\n");
+            } else {
+                dynamicSummary.append("**Suspicious Strings Detected:** No\n");
+            }
+            if (!peInfo.equals("{}") && peInfo.length() > 2) {
+                dynamicSummary.append("**PE Analysis:** Completed\n");
+            } else {
+                dynamicSummary.append("**PE Analysis:** Not applicable\n");
+            }
+            dynamicSummary.append("**Analysis Type:** ").append(analysisType).append("\n\n");
+            dynamicSummary.append("This file has been analyzed for potential malware characteristics. ");
+            if (riskScore >= 75) {
+                dynamicSummary.append("High risk indicators were found. Exercise caution.");
+            } else if (riskScore >= 40) {
+                dynamicSummary.append("Medium risk indicators detected. Review carefully.");
+            } else {
+                dynamicSummary.append("Low risk. Appears safe based on analysis.");
+            }
+            plainSummary = dynamicSummary.toString();
 
             conn = DBConnection.getInstance().getConnection();
             String sql = "INSERT INTO reports (file_id, md5_hash, sha256_hash, file_type, risk_score, risk_label, plain_summary, timeline, suspicious_strings, pe_info, analysis_type, raw_result) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -190,6 +216,10 @@ public class ReportService {
         AnalysisReport report = getReportById(reportId);
         if (report == null)
             return;
+
+        // Suppress PDFBox warnings
+        java.util.logging.Logger.getLogger("org.apache.pdfbox").setLevel(java.util.logging.Level.SEVERE);
+        java.util.logging.Logger.getLogger("org.apache.fontbox").setLevel(java.util.logging.Level.OFF);
 
         try (PDDocument document = new PDDocument()) {
             PDType1Font fontNormal = new PDType1Font(Standard14Fonts.FontName.HELVETICA);

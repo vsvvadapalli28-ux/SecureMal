@@ -34,7 +34,7 @@ public class ReportViewerScreen extends JPanel {
 
         JLabel loadingLabel = new JLabel("Loading Report...", SwingConstants.CENTER);
         loadingLabel.setForeground(Config.COLOR_TEXT_WHITE);
-        loadingLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
+        loadingLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         add(loadingLabel, BorderLayout.CENTER);
 
         loadReportAsync();
@@ -100,8 +100,8 @@ public class ReportViewerScreen extends JPanel {
         header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
         JButton backBtn = new JButton("← Back");
-        backBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
-        backBtn.setBackground(Config.COLOR_ACCENT);
+        backBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        backBtn.setBackground(Config.COLOR_BUTTON);
         backBtn.setForeground(Color.WHITE);
         backBtn.setFocusPainted(false);
         backBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -112,7 +112,7 @@ public class ReportViewerScreen extends JPanel {
         header.add(backBtn, BorderLayout.WEST);
 
         JLabel title = new JLabel(report.getFileType(), SwingConstants.CENTER);
-        title.setFont(new Font("SansSerif", Font.BOLD, 18));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
         title.setForeground(Color.WHITE);
         header.add(title, BorderLayout.CENTER);
 
@@ -131,15 +131,15 @@ public class ReportViewerScreen extends JPanel {
             }
         };
         badge.setForeground(Color.WHITE);
-        badge.setFont(new Font("SansSerif", Font.BOLD, 14));
+        badge.setFont(new Font("Segoe UI", Font.BOLD, 14));
         badge.setBorder(new EmptyBorder(5, 12, 5, 12));
         badge.setOpaque(false);
 
         JButton pdfBtn = new JButton("📄 Export PDF");
-        pdfBtn.setBackground(new Color(100, 120, 150));
+        pdfBtn.setBackground(Config.COLOR_BUTTON);
         pdfBtn.setForeground(Color.WHITE);
         pdfBtn.setFocusPainted(false);
-        pdfBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        pdfBtn.setCursor(new Cursor(Cursor.HAND_CURSOR);
         pdfBtn.addActionListener(e -> exportPdf(report));
 
         rightPanel.add(badge);
@@ -176,7 +176,12 @@ public class ReportViewerScreen extends JPanel {
                 @Override
                 protected void done() {
                     progressDialog.dispose();
-                    JOptionPane.showMessageDialog(ReportViewerScreen.this, "PDF saved to:\n" + path, "Success", JOptionPane.INFORMATION_MESSAGE);
+                    try {
+                        get();
+                        JOptionPane.showMessageDialog(ReportViewerScreen.this, "PDF saved to:\n" + path, "Success", JOptionPane.INFORMATION_MESSAGE);
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(ReportViewerScreen.this, "Failed to export PDF: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    }
                 }
             };
             worker.execute();
@@ -198,11 +203,11 @@ public class ReportViewerScreen extends JPanel {
 
         JLabel label = new JLabel("Risk Score: " + report.getRiskScore() + " / 100");
         label.setForeground(Color.WHITE);
-        label.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
         JLabel riskLabel = new JLabel(report.getRiskLabel());
         riskLabel.setForeground(report.getRiskBarColor());
-        riskLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
+        riskLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
 
         panel.add(label);
         panel.add(Box.createRigidArea(new Dimension(0, 5)));
@@ -224,7 +229,7 @@ public class ReportViewerScreen extends JPanel {
 
         JLabel title = new JLabel("📋 What did the analysis find?");
         title.setForeground(Color.WHITE);
-        title.setFont(new Font("SansSerif", Font.BOLD, 14));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
         title.setBorder(new EmptyBorder(0, 0, 10, 0));
         panel.add(title, BorderLayout.NORTH);
 
@@ -235,7 +240,7 @@ public class ReportViewerScreen extends JPanel {
 
         Style defaultStyle = textPane.addStyle("Default", null);
         StyleConstants.setForeground(defaultStyle, Color.WHITE);
-        StyleConstants.setFontFamily(defaultStyle, "SansSerif");
+        StyleConstants.setFontFamily(defaultStyle, "Segoe UI");
         StyleConstants.setFontSize(defaultStyle, 13);
 
         Style boldStyle = textPane.addStyle("Bold", defaultStyle);
@@ -275,7 +280,7 @@ public class ReportViewerScreen extends JPanel {
 
         JLabel title = new JLabel("🕐 What did this file do?");
         title.setForeground(Color.WHITE);
-        title.setFont(new Font("SansSerif", Font.BOLD, 16));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setBorder(new EmptyBorder(0, 0, 15, 0));
         timelinePanel.add(title);
 
@@ -323,7 +328,7 @@ public class ReportViewerScreen extends JPanel {
             // Row 1
             JLabel row1 = new JLabel(ev.getOrDefault("icon", "🟢") + " " + ev.getOrDefault("timestamp", "unknown"));
             row1.setForeground(Color.WHITE);
-            row1.setFont(new Font("SansSerif", Font.BOLD, 13));
+            row1.setFont(new Font("Segoe UI", Font.BOLD, 13));
             
             // Row 2
             JTextArea row2 = new JTextArea(ev.getOrDefault("plain_message", ""));
@@ -332,7 +337,7 @@ public class ReportViewerScreen extends JPanel {
             row2.setLineWrap(true);
             row2.setWrapStyleWord(true);
             row2.setForeground(Color.WHITE);
-            row2.setFont(new Font("SansSerif", Font.PLAIN, 14));
+            row2.setFont(new Font("Segoe UI", Font.PLAIN, 14));
             row2.setBorder(new EmptyBorder(6, 0, 0, 0));
 
             // Row 3
@@ -342,7 +347,7 @@ public class ReportViewerScreen extends JPanel {
             row3.setLineWrap(true);
             row3.setWrapStyleWord(true);
             row3.setForeground(Color.decode("#aaaaaa"));
-            row3.setFont(new Font("SansSerif", Font.ITALIC, 12));
+            row3.setFont(new Font("Segoe UI", Font.ITALIC, 12));
             row3.setBorder(new EmptyBorder(4, 0, 0, 0));
 
             card.add(row1);
@@ -363,7 +368,7 @@ public class ReportViewerScreen extends JPanel {
         wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JToggleButton toggleBtn = new JToggleButton("▶ Show Technical Details");
-        toggleBtn.setBackground(Config.COLOR_ACCENT);
+        toggleBtn.setBackground(Config.COLOR_BUTTON);
         toggleBtn.setForeground(Color.WHITE);
         toggleBtn.setFocusPainted(false);
         toggleBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -405,7 +410,7 @@ public class ReportViewerScreen extends JPanel {
 
         JLabel label = new JLabel(labelText);
         label.setForeground(Color.LIGHT_GRAY);
-        label.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         label.setPreferredSize(new Dimension(120, 20));
 
         JTextField valField = new JTextField(valText != null ? valText : "N/A");
