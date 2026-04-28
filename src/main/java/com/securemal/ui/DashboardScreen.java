@@ -196,12 +196,11 @@ public class DashboardScreen extends JPanel {
         fileTable.getColumnModel().getColumn(6).setCellEditor(new ButtonEditor(new JCheckBox()));
 
         // Delete Column Button Renderer/Editor
-        int deleteCol = table.getColumnModel().getColumnCount() - 1;
         fileTable.getColumn("Delete").setCellRenderer(new DeleteButtonRenderer());
         fileTable.getColumn("Delete").setCellEditor(
             new DeleteButtonEditor(new JCheckBox()));
-        fileTable.getColumnModel().getColumn(deleteCol).setPreferredWidth(90);
-        fileTable.getColumnModel().getColumn(deleteCol).setMaxWidth(90);
+        fileTable.getColumnModel().getColumn(7).setPreferredWidth(90);
+        fileTable.getColumnModel().getColumn(7).setMaxWidth(90);
 
         // Double click listener for rows
         fileTable.addMouseListener(new MouseAdapter() {

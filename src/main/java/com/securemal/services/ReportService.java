@@ -50,6 +50,19 @@ public class ReportService {
             String plainSummary = root.has("plain_summary") && !root.get("plain_summary").isJsonNull()
                     ? root.get("plain_summary").getAsString()
                     : "Analysis complete. See technical details below.";
+            
+            String timeline = root.has("timeline") && !root.get("timeline").isJsonNull()
+                    ? root.get("timeline").toString()
+                    : "[]";
+            String suspiciousStrings = root.has("suspicious_strings") && !root.get("suspicious_strings").isJsonNull()
+                    ? root.get("suspicious_strings").toString()
+                    : "[]";
+            String peInfo = root.has("pe_info") && !root.get("pe_info").isJsonNull()
+                    ? root.get("pe_info").toString()
+                    : "{}";
+            String analysisType = root.has("analysis_type") && !root.get("analysis_type").isJsonNull()
+                    ? root.get("analysis_type").getAsString()
+                    : "static";
 
             conn = DBConnection.getInstance().getConnection();
             String sql = "INSERT INTO reports (file_id, md5_hash, sha256_hash, file_type, risk_score, risk_label, plain_summary, timeline, suspicious_strings, pe_info, analysis_type, raw_result) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";

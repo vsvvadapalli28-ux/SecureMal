@@ -1,5 +1,9 @@
 package com.securemal.ui;
 
+import com.securemal.auth.AuthService;
+import com.securemal.config.Config;
+import com.securemal.models.User;
+import com.securemal.state.AppState;
 import com.securemal.ui.components.Icons;
 
 import javax.swing.*;
