@@ -124,33 +124,50 @@ def calculate_risk_score(suspicious_strings, entropy, pe_info):
         
     return score, label
 
-def generate_plain_summary(timeline, risk_score, risk_label):
-    summary = f"This file appears to be **{risk_label}** risk and "
-    
-    if risk_label in ["High", "Critical"]:
-        summary += "should not be run on a real computer. "
-        recommendation = "Recommendation: Delete this file immediately."
-    elif risk_label == "Medium":
-        summary += "exhibits some suspicious characteristics. "
-        recommendation = "Recommendation: Proceed with caution or run in a sandbox."
+def generate_plain_summary(timeline: list, risk_score: int, risk_label: str) -> str:
+    if not timeline:
+        if risk_score == 0:
+            return (
+                f"This file appears to be safe based on static analysis. "
+                f"No suspicious behavior patterns were detected. "
+                f"Risk score: {risk_score}/100 — {risk_label}. "
+                f"Recommendation: This file appears safe to use."
+            )
+        else:
+            return (
+                f"This file has a risk score of {risk_score}/100 — {risk_label}. "
+                f"Recommendation: Exercise caution before running this file."
+            )
+    # Collect top findings by severity
+    high_events = [e for e in timeline if e.get("severity") == "high"]
+    medium_events = [e for e in timeline if e.get("severity") == "medium"]
+
+    findings = []
+    for event in (high_events + medium_events)[:3]:  # top 3 findings
+        msg = event.get("plain_message", "")
+        # Strip "The uploaded file" prefix for summary sentence
+        msg = msg.replace("The uploaded file can ", "it can ")
+        msg = msg.replace("The uploaded file ", "it ")
+        findings.append(msg)
+
+    findings_text = "; ".join(findings) if findings else "suspicious behavior was detected"
+
+    risk_word = f"**{risk_label}**"
+
+    if risk_score >= 75:
+        opening = f"This file appears to be {risk_word} risk and should not be run on a real computer."
+        recommendation = "Recommendation: Delete this file immediately and do not open it on any personal or work computer."
+    elif risk_score >= 40:
+        opening = f"This file appears to be {risk_word} risk and should be handled with caution."
+        recommendation = "Recommendation: Do not run this file unless you are certain of its source."
     else:
-        summary += "does not exhibit highly malicious traits. "
-        recommendation = "Recommendation: Likely safe, but always ensure your antivirus is active."
-        
-    if timeline:
-        findings = []
-        for t in timeline[:3]:
-            # remove "The uploaded file " from the start to make a comma separated list
-            msg = t["plain_message"]
-            if msg.startswith("The uploaded file "):
-                msg = msg.replace("The uploaded file ", "", 1)
-            findings.append(msg.strip().strip("."))
-            
-        summary += "It was found to " + ", ".join(findings) + ". "
-    else:
-        summary += "No significant malicious behaviors were found. "
-        
-    summary += f"Risk score: {risk_score}/100 — **{risk_label}**. "
-    summary += recommendation
-    
+        opening = f"This file appears to be {risk_word} risk based on static analysis."
+        recommendation = "Recommendation: This file appears relatively safe, but always verify the source."
+
+    summary = (
+        f"{opening} "
+        f"During analysis, {findings_text}. "
+        f"Risk score: {risk_score}/100 — {risk_word}. "
+        f"{recommendation}"
+    )
     return summary
