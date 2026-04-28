@@ -1,9 +1,6 @@
 package com.securemal.ui;
 
-import com.securemal.auth.AuthService;
-import com.securemal.config.Config;
-import com.securemal.models.User;
-import com.securemal.state.AppState;
+import com.securemal.ui.components.Icons;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -29,7 +26,7 @@ public class LoginScreen extends JPanel {
         card.setBorder(new EmptyBorder(40, 60, 40, 60));
         
         // Title
-        JLabel title = new JLabel("🔒 SecureMal");
+        JLabel title = new JLabel(Icons.FILE_ICON + " SecureMal");
         title.setFont(new Font("SansSerif", Font.BOLD, 28));
         title.setForeground(Config.COLOR_TEXT_WHITE);
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -41,7 +38,7 @@ public class LoginScreen extends JPanel {
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
         
         // Inputs
-        txtUsername = createStyledTextField("Username");
+        txtUsername = createStyledTextField("Email");
         txtPassword = createStyledPasswordField();
         
         // Status Label
@@ -51,8 +48,10 @@ public class LoginScreen extends JPanel {
         
         // Button
         btnLogin = new JButton("Login");
-        btnLogin.setBackground(Config.COLOR_ACCENT);
-        btnLogin.setForeground(Config.COLOR_TEXT_WHITE);
+        btnLogin.setBackground(Color.decode("#e84393"));
+        btnLogin.setForeground(Color.WHITE);
+        btnLogin.setOpaque(true);
+        btnLogin.setBorderPainted(false);
         btnLogin.setFocusPainted(false);
         btnLogin.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnLogin.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -78,9 +77,9 @@ public class LoginScreen extends JPanel {
         card.add(Box.createRigidArea(new Dimension(0, 5)));
         card.add(subtitle);
         card.add(Box.createRigidArea(new Dimension(0, 30)));
-        card.add(txtUsername);
+        card.add(createFieldRow("Email", txtUsername));
         card.add(Box.createRigidArea(new Dimension(0, 15)));
-        card.add(txtPassword);
+        card.add(createFieldRow("Password", txtPassword));
         card.add(Box.createRigidArea(new Dimension(0, 15)));
         card.add(lblStatus);
         card.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -91,6 +90,27 @@ public class LoginScreen extends JPanel {
         add(card);
     }
     
+    private JPanel createFieldRow(String labelText, JComponent field) {
+        JPanel row = new JPanel();
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(360, 40));
+        row.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel lbl = new JLabel(labelText);
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        lbl.setPreferredSize(new Dimension(75, 40));
+        lbl.setMinimumSize(new Dimension(75, 40));
+        lbl.setMaximumSize(new Dimension(75, 40));
+        lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        row.add(lbl);
+        row.add(Box.createRigidArea(new Dimension(8, 0)));
+        row.add(field);
+        return row;
+    }
+
     private JTextField createStyledTextField(String placeholder) {
         JTextField field = new JTextField();
         field.setMaximumSize(new Dimension(300, 40));

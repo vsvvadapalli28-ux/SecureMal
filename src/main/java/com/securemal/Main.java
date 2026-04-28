@@ -1,9 +1,10 @@
 package com.securemal;
 
-import com.securemal.ui.MainFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
+
+import com.securemal.ui.MainFrame;
 
 /**
  * Main Entry Point for the SecureMal Application.
@@ -26,6 +27,17 @@ public class Main {
         }
 
         SwingUtilities.invokeLater(() -> {
+            // Set global font
+            java.awt.Font appFont = new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 13);
+            java.util.Enumeration<Object> keys = UIManager.getDefaults().keys();
+            while (keys.hasMoreElements()) {
+                Object key = keys.nextElement();
+                Object value = UIManager.getDefaults().get(key);
+                if (value instanceof java.awt.Font) {
+                    UIManager.put(key, appFont);
+                }
+            }
+
             MainFrame mainFrame = new MainFrame();
             mainFrame.setVisible(true);
         });

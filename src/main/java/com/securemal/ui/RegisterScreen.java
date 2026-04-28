@@ -1,7 +1,6 @@
 package com.securemal.ui;
 
-import com.securemal.auth.AuthService;
-import com.securemal.config.Config;
+import com.securemal.ui.components.Icons;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -29,7 +28,7 @@ public class RegisterScreen extends JPanel {
         card.setBorder(new EmptyBorder(40, 60, 40, 60));
         
         // Title
-        JLabel title = new JLabel("🔒 SecureMal");
+        JLabel title = new JLabel(Icons.FILE_ICON + " SecureMal");
         title.setFont(new Font("SansSerif", Font.BOLD, 28));
         title.setForeground(Config.COLOR_TEXT_WHITE);
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -53,8 +52,10 @@ public class RegisterScreen extends JPanel {
         
         // Button
         btnRegister = new JButton("Register");
-        btnRegister.setBackground(Config.COLOR_ACCENT);
-        btnRegister.setForeground(Config.COLOR_TEXT_WHITE);
+        btnRegister.setBackground(Config.COLOR_HIGHLIGHT);
+        btnRegister.setForeground(Color.WHITE);
+        btnRegister.setOpaque(true);
+        btnRegister.setBorderPainted(false);
         btnRegister.setFocusPainted(false);
         btnRegister.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnRegister.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -167,9 +168,9 @@ public class RegisterScreen extends JPanel {
         lblStatus.setForeground(Color.GRAY);
         lblStatus.setText("Creating account...");
         
-        SwingWorker<Boolean, Void> worker = new SwingWorker<Boolean, Void>() {
+        SwingWorker<Integer, Void> worker = new SwingWorker<Integer, Void>() {
             @Override
-            protected Boolean doInBackground() throws Exception {
+            protected Integer doInBackground() throws Exception {
                 AuthService authService = new AuthService();
                 return authService.registerUser(username, email, password);
             }
@@ -178,8 +179,8 @@ public class RegisterScreen extends JPanel {
             protected void done() {
                 btnRegister.setEnabled(true);
                 try {
-                    boolean success = get();
-                    if (success) {
+                    int result = get();
+                    if (result == 1) {
                         lblStatus.setForeground(Color.GREEN);
                         lblStatus.setText("Account created!");
                         
@@ -193,9 +194,12 @@ public class RegisterScreen extends JPanel {
                         });
                         timer.setRepeats(false);
                         timer.start();
+                    } else if (result == -1) {
+                        lblStatus.setForeground(Color.RED);
+                        lblStatus.setText("Email already in use. Please use a different email.");
                     } else {
                         lblStatus.setForeground(Color.RED);
-                        lblStatus.setText("Username already taken. Please choose another.");
+                        lblStatus.setText("Registration failed. Check all fields and try again.");
                     }
                 } catch (Exception ex) {
                     lblStatus.setForeground(Color.RED);
