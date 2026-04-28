@@ -4,9 +4,9 @@ USE securemal;
 -- Users table stores authentication info and timestamps
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(30) UNIQUE NOT NULL,
+    username VARCHAR(30) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    email VARCHAR(255),
+    email VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
