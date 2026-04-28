@@ -45,6 +45,7 @@ ICONS = {
 
 def translate_strings(suspicious_strings, entropy, pe_info):
     timeline = []
+    seen_strings = set()
     
     def add_event(message, severity, raw):
         timeline.append({
@@ -57,18 +58,22 @@ def translate_strings(suspicious_strings, entropy, pe_info):
         })
 
     for s in suspicious_strings:
-        lower_s = s.lower()
-        if lower_s in TRANSLATION_TABLE:
-            msg, sev = TRANSLATION_TABLE[lower_s]
+        normalized = s.strip().lower()
+        if not normalized or normalized in seen_strings:
+            continue
+        seen_strings.add(normalized)
+
+        if normalized in TRANSLATION_TABLE:
+            msg, sev = TRANSLATION_TABLE[normalized]
             add_event(msg, sev, s)
-        elif lower_s in CREDENTIALS_TABLE:
-            app_name = CREDENTIALS_TABLE[lower_s]
+        elif normalized in CREDENTIALS_TABLE:
+            app_name = CREDENTIALS_TABLE[normalized]
             add_event(f"The uploaded file tried to get credentials for {app_name}.", "high", s)
 
-    if entropy > 7.0:
+    if entropy is not None and entropy > 7.0:
         add_event("The uploaded file contents are heavily scrambled, hiding its true purpose.", "medium", f"entropy={entropy}")
         
-    if pe_info.get("is_packed", False):
+    if isinstance(pe_info, dict) and pe_info.get("is_packed", False):
         add_event("The uploaded file is compressed to hide its contents — an evasion technique.", "medium", "is_packed=True")
 
     # Order: high -> medium -> low
