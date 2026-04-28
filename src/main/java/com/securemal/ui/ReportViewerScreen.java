@@ -269,79 +269,114 @@ public class ReportViewerScreen extends JPanel {
         List<Map<String, String>> events = JsonUtil.parseTimelineArray(report.getTimelineJson());
         // Clear any previous content
         timelinePanel.removeAll();
+        timelinePanel.add(title);
+        
         if (events == null || events.isEmpty()) {
-            JLabel noEvents = new JLabel("No behavioral events detected during analysis.");
-            noEvents.setForeground(new Color(160, 160, 176));
-            noEvents.setFont(new Font("Segoe UI", Font.ITALIC, 13));
-            noEvents.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-            timelinePanel.add(noEvents);
+            JLabel empty = new JLabel(
+                "<html><body style='color:#a0a0b0; font-style:italic;'>"
+                + "No behavioral events were detected during analysis."
+                + "</body></html>"
+            );
+            empty.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+            empty.setAlignmentX(Component.LEFT_ALIGNMENT);
+            timelinePanel.add(empty);
         } else {
             for (Map<String, String> event : events) {
-                String severity     = event.getOrDefault("severity", "low");
-                String timestamp    = event.getOrDefault("timestamp", "");
-                String plainMessage = event.getOrDefault("plain_message", "");
-                String whatItMeans  = event.getOrDefault("what_this_means", "");
-                // Build the card
-                JPanel card = new JPanel();
-                card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+                String severity    = event.getOrDefault("severity", "low");
+                String timestamp   = event.getOrDefault("timestamp", "static analysis");
+                String plainMsg    = event.getOrDefault("plain_message", "");
+                String whatItMeans = event.getOrDefault("what_this_means", "");
+                String iconText    = Icons.iconFor(severity);
+
+                // --- Determine card colors ---
+                Color cardBg;
+                Color borderColor;
+                switch (severity.toLowerCase()) {
+                    case "high":
+                    case "critical":
+                        cardBg      = new Color(45, 0, 0);
+                        borderColor = new Color(233, 69, 96);
+                        break;
+                    case "medium":
+                        cardBg      = new Color(45, 34, 0);
+                        borderColor = new Color(243, 156, 18);
+                        break;
+                    default:
+                        cardBg      = new Color(0, 45, 0);
+                        borderColor = new Color(0, 184, 148);
+                        break;
+                }
+
+                // --- Build the card as a JPanel with BorderLayout ---
+                JPanel card = new JPanel(new BorderLayout(0, 6));
+                card.setBackground(cardBg);
+                card.setOpaque(true);
+
+                // Left colored accent border via MatteBorder + EmptyBorder
                 card.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(0, 4, 0, 0,
-                        severity.equals("high") ? new Color(233, 69, 96)
-                        : severity.equals("medium") ? new Color(243, 156, 18)
-                        : new Color(0, 184, 148)),
+                    BorderFactory.createMatteBorder(0, 4, 0, 0, borderColor),
                     BorderFactory.createEmptyBorder(12, 14, 12, 14)
                 ));
-                card.setBackground(
-                    severity.equals("high")   ? new Color(45, 0, 0)
-                    : severity.equals("medium") ? new Color(45, 34, 0)
-                    : new Color(0, 45, 0)
-                );
-                card.setOpaque(true);
-                card.setMaximumSize(new Dimension(Integer.MAX_VALUE,
-                    card.getPreferredSize().height));
 
-                // Row 1 — severity label + timestamp
-                String iconText = Icons.iconFor(severity);
+                // --- Content panel inside card (vertical stack) ---
+                JPanel content = new JPanel();
+                content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+                content.setOpaque(false);
+                content.setBackground(cardBg);
+
+                // Row 1: icon + timestamp header
                 JLabel headerLabel = new JLabel(iconText + "  " + timestamp);
                 headerLabel.setForeground(Color.WHITE);
                 headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
                 headerLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-                // Row 2 — plain message
+                // Row 2: plain message
                 JLabel msgLabel = new JLabel(
-                    "<html><body style='width:520px; font-size:13px; color:#ffffff;'>"
-                    + plainMessage + "</body></html>"
+                    "<html><div style='width:530px; font-family:Segoe UI; "
+                    + "font-size:13px; color:#ffffff; margin-top:6px;'>"
+                    + plainMsg
+                    + "</div></html>"
                 );
-                msgLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-                msgLabel.setForeground(Color.WHITE);
                 msgLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                msgLabel.setBorder(BorderFactory.createEmptyBorder(6, 0, 4, 0));
 
-                // Row 3 — what this means
+                // Row 3: what this means
                 JLabel infoLabel = new JLabel(
-                    "<html><body style='width:520px; font-size:12px; "
-                    + "color:#a0a0b0; font-style:italic;'>"
-                    + "\u2139  " + whatItMeans + "</body></html>"
+                    "<html><div style='width:530px; font-family:Segoe UI; "
+                    + "font-size:12px; color:#a0a0b0; font-style:italic; "
+                    + "margin-top:4px;'>"
+                    + "\u2139&nbsp; " + whatItMeans
+                    + "</div></html>"
                 );
-                infoLabel.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-                infoLabel.setForeground(new Color(160, 160, 176));
                 infoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-                card.add(headerLabel);
-                card.add(msgLabel);
-                card.add(infoLabel);
+                content.add(headerLabel);
+                content.add(Box.createVerticalStrut(4));
+                content.add(msgLabel);
+                content.add(Box.createVerticalStrut(2));
+                content.add(infoLabel);
 
-                timelinePanel.add(card);
-                timelinePanel.add(Box.createVerticalStrut(8)); // gap between cards
+                card.add(content, BorderLayout.CENTER);
+
+                // --- Wrapper to enforce full width and left alignment ---
+                JPanel wrapper = new JPanel(new BorderLayout());
+                wrapper.setOpaque(false);
+                wrapper.add(card, BorderLayout.CENTER);
+                wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                timelinePanel.add(wrapper);
+                timelinePanel.add(Box.createVerticalStrut(10));
             }
         }
-        // CRITICAL: tell Swing to re-layout and repaint
+        
+        // CRITICAL: always call these two after modifying a visible panel
         timelinePanel.revalidate();
         timelinePanel.repaint();
-        // CRITICAL: scroll back to top after loading
+        
+        // Scroll to top after loading
         SwingUtilities.invokeLater(() -> {
-            JScrollBar vertical = scrollPane.getVerticalScrollBar();
-            vertical.setValue(0);
+            if (scrollPane != null) {
+                scrollPane.getVerticalScrollBar().setValue(0);
+            }
         });
 
         mainContainer.add(timelinePanel);
