@@ -4,6 +4,7 @@ import com.securemal.config.Config;
 import com.securemal.models.AnalysisReport;
 import com.securemal.services.ReportService;
 import com.securemal.utils.JsonUtil;
+import com.securemal.ui.components.Icons;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -99,10 +100,12 @@ public class ReportViewerScreen extends JPanel {
         header.setOpaque(false);
         header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
-        JButton backBtn = new JButton("← Back");
+        JButton backBtn = new JButton(Icons.BACK_ICON + " Back");
         backBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         backBtn.setBackground(Config.COLOR_BUTTON);
         backBtn.setForeground(Color.WHITE);
+        backBtn.setOpaque(true);
+        backBtn.setBorderPainted(false);
         backBtn.setFocusPainted(false);
         backBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         backBtn.addActionListener(e -> {
@@ -135,11 +138,13 @@ public class ReportViewerScreen extends JPanel {
         badge.setBorder(new EmptyBorder(5, 12, 5, 12));
         badge.setOpaque(false);
 
-        JButton pdfBtn = new JButton("📄 Export PDF");
+        JButton pdfBtn = new JButton(Icons.PDF_ICON + " Export PDF");
         pdfBtn.setBackground(Config.COLOR_BUTTON);
         pdfBtn.setForeground(Color.WHITE);
+        pdfBtn.setOpaque(true);
+        pdfBtn.setBorderPainted(false);
         pdfBtn.setFocusPainted(false);
-        pdfBtn.setCursor(new Cursor(Cursor.HAND_CURSOR);
+        pdfBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         pdfBtn.addActionListener(e -> exportPdf(report));
 
         rightPanel.add(badge);
@@ -227,48 +232,25 @@ public class ReportViewerScreen extends JPanel {
         ));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("📋 What did the analysis find?");
+        JLabel title = new JLabel(Icons.SUMMARY_ICON + " What did the analysis find?");
         title.setForeground(Color.WHITE);
         title.setFont(new Font("Segoe UI", Font.BOLD, 14));
         title.setBorder(new EmptyBorder(0, 0, 10, 0));
         panel.add(title, BorderLayout.NORTH);
 
-        JTextPane textPane = new JTextPane();
-        textPane.setEditable(false);
-        textPane.setOpaque(false);
-        StyledDocument doc = textPane.getStyledDocument();
-
-        Style defaultStyle = textPane.addStyle("Default", null);
-        StyleConstants.setForeground(defaultStyle, Color.WHITE);
-        StyleConstants.setFontFamily(defaultStyle, "Segoe UI");
-        StyleConstants.setFontSize(defaultStyle, 13);
-
-        Style boldStyle = textPane.addStyle("Bold", defaultStyle);
-        StyleConstants.setBold(boldStyle, true);
-
-        try {
-            String plainText = report.getPlainSummary();
-            int index = 0;
-            while (index < plainText.length()) {
-                int boldStart = plainText.indexOf("**", index);
-                if (boldStart == -1) {
-                    doc.insertString(doc.getLength(), plainText.substring(index), defaultStyle);
-                    break;
-                }
-                doc.insertString(doc.getLength(), plainText.substring(index, boldStart), defaultStyle);
-                int boldEnd = plainText.indexOf("**", boldStart + 2);
-                if (boldEnd == -1) {
-                    doc.insertString(doc.getLength(), plainText.substring(boldStart), defaultStyle);
-                    break;
-                }
-                doc.insertString(doc.getLength(), plainText.substring(boldStart + 2, boldEnd), boldStyle);
-                index = boldEnd + 2;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        String summary = report.getPlainSummary();
+        if (summary == null || summary.isBlank()) {
+            summary = "Analysis complete. No detailed summary available.";
         }
+        // Convert word to HTML bold
+        summary = summary.replaceAll("\\*\\*([^\\*]+)\\*\\*", "<b>$1</b>");
+        JLabel summaryLabel = new JLabel("<html><body style='width:480px; "
+               + "font-family:Segoe UI; font-size:13px; color:#ffffff;'>"
+               + summary + "</body></html>");
+        summaryLabel.setForeground(Color.WHITE);
+        summaryLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
-        panel.add(textPane, BorderLayout.CENTER);
+        panel.add(summaryLabel, BorderLayout.CENTER);
         mainContainer.add(panel);
     }
 
@@ -278,85 +260,89 @@ public class ReportViewerScreen extends JPanel {
         timelinePanel.setOpaque(false);
         timelinePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("🕐 What did this file do?");
+        JLabel title = new JLabel(Icons.TIMELINE_ICON + " What did this file do?");
         title.setForeground(Color.WHITE);
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setBorder(new EmptyBorder(0, 0, 15, 0));
         timelinePanel.add(title);
 
         List<Map<String, String>> events = JsonUtil.parseTimelineArray(report.getTimelineJson());
-        for (Map<String, String> ev : events) {
-            String severity = ev.getOrDefault("severity", "low").toLowerCase();
-            Color bgColor = Config.COLOR_RISK_LOW;
-            Color borderColor = Color.decode("#27ae60");
-            
-            if ("high".equals(severity)) {
-                bgColor = Config.COLOR_RISK_HIGH;
-                borderColor = Color.decode("#e94560");
-            } else if ("medium".equals(severity)) {
-                bgColor = Config.COLOR_RISK_MEDIUM;
-                borderColor = Color.decode("#f5a623");
+        // Clear any previous content
+        timelinePanel.removeAll();
+        if (events == null || events.isEmpty()) {
+            JLabel noEvents = new JLabel("No behavioral events detected during analysis.");
+            noEvents.setForeground(new Color(160, 160, 176));
+            noEvents.setFont(new Font("Segoe UI", Font.ITALIC, 13));
+            noEvents.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+            timelinePanel.add(noEvents);
+        } else {
+            for (Map<String, String> event : events) {
+                String severity     = event.getOrDefault("severity", "low");
+                String timestamp    = event.getOrDefault("timestamp", "");
+                String plainMessage = event.getOrDefault("plain_message", "");
+                String whatItMeans  = event.getOrDefault("what_this_means", "");
+                // Build the card
+                JPanel card = new JPanel();
+                card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+                card.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 4, 0, 0,
+                        severity.equals("high") ? new Color(233, 69, 96)
+                        : severity.equals("medium") ? new Color(243, 156, 18)
+                        : new Color(0, 184, 148)),
+                    BorderFactory.createEmptyBorder(12, 14, 12, 14)
+                ));
+                card.setBackground(
+                    severity.equals("high")   ? new Color(45, 0, 0)
+                    : severity.equals("medium") ? new Color(45, 34, 0)
+                    : new Color(0, 45, 0)
+                );
+                card.setOpaque(true);
+                card.setMaximumSize(new Dimension(Integer.MAX_VALUE,
+                    card.getPreferredSize().height));
+
+                // Row 1 — severity label + timestamp
+                String iconText = Icons.iconFor(severity);
+                JLabel headerLabel = new JLabel(iconText + "  " + timestamp);
+                headerLabel.setForeground(Color.WHITE);
+                headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                headerLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                // Row 2 — plain message
+                JLabel msgLabel = new JLabel(
+                    "<html><body style='width:520px; font-size:13px; color:#ffffff;'>"
+                    + plainMessage + "</body></html>"
+                );
+                msgLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                msgLabel.setForeground(Color.WHITE);
+                msgLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                msgLabel.setBorder(BorderFactory.createEmptyBorder(6, 0, 4, 0));
+
+                // Row 3 — what this means
+                JLabel infoLabel = new JLabel(
+                    "<html><body style='width:520px; font-size:12px; "
+                    + "color:#a0a0b0; font-style:italic;'>"
+                    + "\u2139  " + whatItMeans + "</body></html>"
+                );
+                infoLabel.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+                infoLabel.setForeground(new Color(160, 160, 176));
+                infoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                card.add(headerLabel);
+                card.add(msgLabel);
+                card.add(infoLabel);
+
+                timelinePanel.add(card);
+                timelinePanel.add(Box.createVerticalStrut(8)); // gap between cards
             }
-
-            final Color fBgColor = bgColor;
-            final Color fBorderColor = borderColor;
-
-            JPanel card = new JPanel() {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    
-                    // Main background
-                    g2.setColor(fBgColor);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
-                    
-                    // Left border line
-                    g2.setClip(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 16, 16));
-                    g2.setColor(fBorderColor);
-                    g2.fillRect(0, 0, 4, getHeight());
-                    
-                    g2.dispose();
-                }
-            };
-            card.setOpaque(false);
-            card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-            card.setBorder(new EmptyBorder(14, 14, 14, 14));
-            card.setAlignmentX(Component.LEFT_ALIGNMENT);
-            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
-
-            // Row 1
-            JLabel row1 = new JLabel(ev.getOrDefault("icon", "🟢") + " " + ev.getOrDefault("timestamp", "unknown"));
-            row1.setForeground(Color.WHITE);
-            row1.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            
-            // Row 2
-            JTextArea row2 = new JTextArea(ev.getOrDefault("plain_message", ""));
-            row2.setOpaque(false);
-            row2.setEditable(false);
-            row2.setLineWrap(true);
-            row2.setWrapStyleWord(true);
-            row2.setForeground(Color.WHITE);
-            row2.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-            row2.setBorder(new EmptyBorder(6, 0, 0, 0));
-
-            // Row 3
-            JTextArea row3 = new JTextArea("ℹ️  " + ev.getOrDefault("what_this_means", ""));
-            row3.setOpaque(false);
-            row3.setEditable(false);
-            row3.setLineWrap(true);
-            row3.setWrapStyleWord(true);
-            row3.setForeground(Color.decode("#aaaaaa"));
-            row3.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-            row3.setBorder(new EmptyBorder(4, 0, 0, 0));
-
-            card.add(row1);
-            card.add(row2);
-            card.add(row3);
-
-            timelinePanel.add(card);
-            timelinePanel.add(Box.createRigidArea(new Dimension(0, 10)));
         }
+        // CRITICAL: tell Swing to re-layout and repaint
+        timelinePanel.revalidate();
+        timelinePanel.repaint();
+        // CRITICAL: scroll back to top after loading
+        SwingUtilities.invokeLater(() -> {
+            JScrollBar vertical = scrollPane.getVerticalScrollBar();
+            vertical.setValue(0);
+        });
 
         mainContainer.add(timelinePanel);
     }
@@ -367,9 +353,11 @@ public class ReportViewerScreen extends JPanel {
         wrapper.setOpaque(false);
         wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JToggleButton toggleBtn = new JToggleButton("▶ Show Technical Details");
+        JToggleButton toggleBtn = new JToggleButton(Icons.PDF_ICON + " Show Technical Details");
         toggleBtn.setBackground(Config.COLOR_BUTTON);
         toggleBtn.setForeground(Color.WHITE);
+        toggleBtn.setOpaque(true);
+        toggleBtn.setBorderPainted(false);
         toggleBtn.setFocusPainted(false);
         toggleBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -391,7 +379,7 @@ public class ReportViewerScreen extends JPanel {
         toggleBtn.addActionListener(e -> {
             boolean selected = toggleBtn.isSelected();
             hiddenPanel.setVisible(selected);
-            toggleBtn.setText(selected ? "▼ Hide Technical Details" : "▶ Show Technical Details");
+            toggleBtn.setText(selected ? "▼ Hide Technical Details" : Icons.PDF_ICON + " Show Technical Details");
             revalidate();
             repaint();
         });
