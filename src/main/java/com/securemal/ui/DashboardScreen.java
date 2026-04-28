@@ -197,7 +197,7 @@ public class DashboardScreen extends JPanel {
 
         // Delete Column Button Renderer/Editor
         fileTable.getColumn("Delete").setCellRenderer(new DeleteButtonRenderer());
-        fileTable.getColumn("Delete").setCellEditor(new DeleteButtonEditor());
+        fileTable.getColumn("Delete").setCellEditor(new DeleteButtonEditor(new JCheckBox()));
         fileTable.getColumnModel().getColumn(7).setPreferredWidth(90);
         fileTable.getColumnModel().getColumn(7).setMaxWidth(90);
 
@@ -531,13 +531,13 @@ public class DashboardScreen extends JPanel {
         }
     }
 
-    private class DeleteButtonEditor implements TableCellEditor {
-        private final JButton button;
-        private int currentFileId;
-        private String currentFilename;
-        private javax.swing.event.EventListenerList listenerList = new javax.swing.event.EventListenerList();
+    private class DeleteButtonEditor extends DefaultCellEditor {
+        protected JButton button;
+        private int currentRow;
+        private boolean isPushed;
 
-        public DeleteButtonEditor() {
+        public DeleteButtonEditor(JCheckBox checkBox) {
+            super(checkBox);
             button = new JButton(Icons.DELETE_ICON + " Delete");
             button.setOpaque(true);
             button.setBackground(new Color(139, 0, 0));
@@ -549,125 +549,74 @@ public class DashboardScreen extends JPanel {
             button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
             button.addActionListener(e -> {
-                //  Stop editing first so the table state is clean
-                fireEditingStopped();
+                stopCellEditing();
+                if (currentFiles != null && currentFiles.size() > currentRow) {
+                    UploadedFile uf = currentFiles.get(currentRow);
+                    int fId = uf.getId();
+                    String fname = uf.getOriginalFilename();
 
-                // Now run the delete with the captured fileId
-                int fId = currentFileId;
-                String fname = currentFilename;
+                    int confirm = JOptionPane.showConfirmDialog(
+                        DashboardScreen.this,
+                        "<html>Are you sure you want to delete:<br><br>"
+                        + "<b>" + fname + "</b><br><br>"
+                        + "This will permanently remove the file and its<br>"
+                        + "analysis report. This cannot be undone.</html>",
+                        "Confirm Delete",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE
+                    );
 
-                int confirm = JOptionPane.showConfirmDialog(
-                    DashboardScreen.this,
-                    "<html>Are you sure you want to delete:<br><br>"
-                    + "<b>" + fname + "</b><br><br>"
-                    + "This will permanently remove the file and its<br>"
-                    + "analysis report. This cannot be undone.</html>",
-                    "Confirm Delete",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.WARNING_MESSAGE
-                );
-
-                if (confirm == JOptionPane.YES_OPTION) {
-                    new SwingWorker<Boolean, Void>() {
-                        @Override
-                        protected Boolean doInBackground() throws Exception {
-                            return fileService.deleteFile(fId);
-                        }
-                        @Override
-                        protected void done() {
-                            try {
-                                boolean success = get();
-                                if (success) {
-                                    SwingUtilities.invokeLater(() -> {
-                                        refreshTable();
-                                        updateStatsCards();
-                                    });
-                                } else {
-                                    JOptionPane.showMessageDialog(
-                                        DashboardScreen.this,
-                                        "Could not delete the file. Please try again.",
-                                        "Delete Failed",
-                                        JOptionPane.ERROR_MESSAGE
-                                    );
-                                }
-                            } catch (Exception ex) {
-                                System.err.println("Delete error: " + ex.getMessage());
+                    if (confirm == JOptionPane.YES_OPTION) {
+                        new SwingWorker<Boolean, Void>() {
+                            @Override
+                            protected Boolean doInBackground() throws Exception {
+                                return fileService.deleteFile(fId);
                             }
-                        }
-                    }.execute();
+                            @Override
+                            protected void done() {
+                                try {
+                                    boolean success = get();
+                                    if (success) {
+                                        SwingUtilities.invokeLater(() -> {
+                                            refreshTable();
+                                            updateStatsCards();
+                                        });
+                                    } else {
+                                        JOptionPane.showMessageDialog(
+                                            DashboardScreen.this,
+                                            "Could not delete the file. Please try again.",
+                                            "Delete Failed",
+                                            JOptionPane.ERROR_MESSAGE
+                                        );
+                                    }
+                                } catch (Exception ex) {
+                                    System.err.println("Delete error: " + ex.getMessage());
+                                }
+                            }
+                        }.execute();
+                    }
                 }
             });
         }
 
         @Override
-        public Component getTableCellEditorComponent(
-                JTable table, Object value,
+        public Component getTableCellEditorComponent(JTable table, Object value,
                 boolean isSelected, int row, int column) {
-
-            // Capture the file ID and filename for this row BEFORE
-            // the button click fires. Row index is the current view row.
-            if (currentFiles != null && currentFiles.size() > row) {
-                UploadedFile uf = currentFiles.get(row);
-                currentFileId = uf.getId();
-                currentFilename = uf.getOriginalFilename();
-            }
+            currentRow = row;
+            isPushed = true;
             return button;
         }
 
         @Override
         public Object getCellEditorValue() {
+            isPushed = false;
             return Icons.DELETE_ICON + " Delete";
         }
 
         @Override
-        public boolean isCellEditable(java.util.EventObject e) {
-            return true;
-        }
-
-        @Override
-        public boolean shouldSelectCell(java.util.EventObject e) {
-            return true;
-        }
-
-        @Override
         public boolean stopCellEditing() {
-            fireEditingStopped();
-            return true;
-        }
-
-        @Override
-        public void cancelCellEditing() {
-            fireEditingCanceled();
-        }
-
-        @Override
-        public void addCellEditorListener(javax.swing.event.CellEditorListener l) {
-            listenerList.add(javax.swing.event.CellEditorListener.class, l);
-        }
-
-        @Override
-        public void removeCellEditorListener(javax.swing.event.CellEditorListener l) {
-            listenerList.remove(javax.swing.event.CellEditorListener.class, l);
-        }
-
-        protected void fireEditingStopped() {
-            Object[] listeners = listenerList.getListenerList();
-            for (int i = listeners.length - 2; i >= 0; i -= 2) {
-                if (listeners[i] == javax.swing.event.CellEditorListener.class) {
-                    ((javax.swing.event.CellEditorListener)listeners[i + 1]).editingStopped(
-                        new javax.swing.event.ChangeEvent(this));
-                }
-            }
-        }
-
-        protected void fireEditingCanceled() {
-            Object[] listeners = listenerList.getListenerList();
-            for (int i = listeners.length - 2; i >= 0; i -= 2) {
-                if (listeners[i] == javax.swing.event.CellEditorListener.class) {
-                    ((javax.swing.event.CellEditorListener)listeners[i + 1]).editingCanceled(
-                        new javax.swing.event.ChangeEvent(this));
-                }
-            }
+            isPushed = false;
+            return super.stopCellEditing();
         }
     }
 }
