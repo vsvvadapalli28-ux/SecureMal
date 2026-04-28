@@ -1,10 +1,5 @@
 package com.securemal.services;
 
-import com.securemal.config.Config;
-import com.securemal.db.DBConnection;
-import com.securemal.db.DBHelper;
-import com.securemal.models.UploadedFile;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,12 +14,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import com.securemal.config.Config;
+import com.securemal.db.DBConnection;
+import com.securemal.db.DBHelper;
+import com.securemal.models.UploadedFile;
+
 public class FileManagementService {
 
     public UploadedFile uploadFile(File selectedFile, int userId) {
         String originalName = selectedFile.getName();
         String storedFilename = UUID.randomUUID().toString() + "_" + originalName;
-        Path targetPath = Paths.get(Config.UPLOADS_DIR, storedFilename);
+        Path targetPath = Paths.get(Config.UPLOADS_DIR, storedFilename).toAbsolutePath();
 
         Connection conn = null;
         PreparedStatement pstmt = null;
@@ -35,7 +35,7 @@ public class FileManagementService {
             Files.copy(selectedFile.toPath(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
             long fileSize = selectedFile.length();
-            String filePathStr = targetPath.toString();
+            String filePathStr = targetPath.toString(); // absolute path
 
             conn = DBConnection.getInstance().getConnection();
             String sql = "INSERT INTO files (user_id, original_filename, stored_filename, file_path, file_size) VALUES (?, ?, ?, ?, ?)";
@@ -120,39 +120,62 @@ public class FileManagementService {
         return list;
     }
 
+    /**
+     * Deletes a file record from the database and removes the physical
+     * file from the uploads directory. Also removes any associated report.
+     *
+     * @param fileId the ID of the file to delete
+     * @return true if deleted successfully, false otherwise
+     */
     public boolean deleteFile(int fileId) {
         Connection conn = null;
-        PreparedStatement pstmtSelect = null;
-        PreparedStatement pstmtDelete = null;
+        PreparedStatement getPath = null;
+        PreparedStatement deleteReport = null;
+        PreparedStatement deleteFile = null;
         ResultSet rs = null;
-
         try {
             conn = DBConnection.getInstance().getConnection();
-            // Get path first
-            String selSql = "SELECT file_path FROM files WHERE id = ?";
-            pstmtSelect = conn.prepareStatement(selSql);
-            pstmtSelect.setInt(1, fileId);
-            rs = pstmtSelect.executeQuery();
+            // Step 1: Get the stored filename before deleting
+            getPath = conn.prepareStatement(
+                "SELECT file_path, stored_filename FROM files WHERE id = ?");
+            getPath.setInt(1, fileId);
+            rs = getPath.executeQuery();
 
+            String filePath = null;
             if (rs.next()) {
-                String filePath = rs.getString("file_path");
-                // Delete physically
-                Files.deleteIfExists(Paths.get(filePath));
+                filePath = rs.getString("file_path");
+            }
+            DBHelper.closeQuietly(rs);
+            DBHelper.closeQuietly(getPath);
+
+            // Step 2: Delete associated report first (foreign key constraint)
+            deleteReport = conn.prepareStatement(
+                "DELETE FROM reports WHERE file_id = ?");
+            deleteReport.setInt(1, fileId);
+            deleteReport.executeUpdate();
+            DBHelper.closeQuietly(deleteReport);
+
+            // Step 3: Delete the file record
+            deleteFile = conn.prepareStatement(
+                "DELETE FROM files WHERE id = ?");
+            deleteFile.setInt(1, fileId);
+            int rows = deleteFile.executeUpdate();
+            DBHelper.closeQuietly(deleteFile);
+
+            // Step 4: Delete physical file from disk
+            if (filePath != null) {
+                File physicalFile = new File(filePath);
+                if (physicalFile.exists()) {
+                    physicalFile.delete();
+                }
             }
 
-            // Delete DB record
-            String delSql = "DELETE FROM files WHERE id = ?";
-            pstmtDelete = conn.prepareStatement(delSql);
-            pstmtDelete.setInt(1, fileId);
-            return pstmtDelete.executeUpdate() > 0;
-
+            return rows > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Error deleting file: " + e.getMessage());
             return false;
         } finally {
-            DBHelper.closeQuietly(rs);
-            DBHelper.closeQuietly(pstmtSelect);
-            DBHelper.closeQuietly(pstmtDelete);
+            DBHelper.closeQuietly(conn);
         }
     }
 }

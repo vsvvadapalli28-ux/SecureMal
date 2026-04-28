@@ -6,6 +6,7 @@ import com.securemal.models.UploadedFile;
 import com.securemal.models.User;
 import com.securemal.services.FileManagementService;
 import com.securemal.state.AppState;
+import com.securemal.ui.components.Icons;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -40,7 +41,7 @@ public class DashboardScreen extends JPanel {
         headerPanel.setBackground(Config.COLOR_HEADER);
         headerPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JLabel title = new JLabel("🔒 SecureMal - Malware Analysis Sandbox");
+        JLabel title = new JLabel(Icons.FILE_ICON + " SecureMal - Malware Analysis Sandbox");
         title.setFont(new Font("Segoe UI", Font.BOLD, 18));
         title.setForeground(Color.WHITE);
         headerPanel.add(title, BorderLayout.WEST);
@@ -114,7 +115,7 @@ public class DashboardScreen extends JPanel {
         centerPanel.add(Box.createRigidArea(new Dimension(0, 20)));
 
         // Status Table
-        String[] columns = { "#", "File Name", "Size", "Uploaded", "Risk", "Status", "Action" };
+        String[] columns = { "#", "File Name", "Size", "Uploaded", "Risk", "Status", "Action", "Delete" };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -171,28 +172,20 @@ public class DashboardScreen extends JPanel {
             }
         });
 
-        // Custom Risk Badge Renderer
-        fileTable.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
+        // Custom Status Renderer
+        fileTable.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
                     boolean hasFocus, int row, int column) {
                 JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row,
                         column);
-                label.setOpaque(true);
-                label.setHorizontalAlignment(SwingConstants.CENTER);
-                String risk = value != null ? value.toString() : "Pending";
-                if ("High".equalsIgnoreCase(risk)) {
-                    label.setBackground(Config.COLOR_RISK_HIGH);
-                    label.setForeground(Color.RED);
-                } else if ("Medium".equalsIgnoreCase(risk)) {
-                    label.setBackground(Config.COLOR_RISK_MEDIUM);
-                    label.setForeground(Color.ORANGE);
-                } else if ("Low".equalsIgnoreCase(risk)) {
-                    label.setBackground(Config.COLOR_RISK_LOW);
-                    label.setForeground(Color.GREEN);
+                String status = value != null ? value.toString() : "Pending";
+                if ("Pending".equals(status)) {
+                    label.setText(Icons.PENDING_ICON + " Pending");
+                } else if ("Analysed".equals(status)) {
+                    label.setText(Icons.DONE_ICON + " Analysed");
                 } else {
-                    label.setBackground(Color.LIGHT_GRAY);
-                    label.setForeground(Color.BLACK);
+                    label.setText(status);
                 }
                 return label;
             }
@@ -201,6 +194,14 @@ public class DashboardScreen extends JPanel {
         // Action Column Button Renderer/Editor
         fileTable.getColumnModel().getColumn(6).setCellRenderer(new ButtonRenderer());
         fileTable.getColumnModel().getColumn(6).setCellEditor(new ButtonEditor(new JCheckBox()));
+
+        // Delete Column Button Renderer/Editor
+        int deleteCol = table.getColumnModel().getColumnCount() - 1;
+        fileTable.getColumn("Delete").setCellRenderer(new DeleteButtonRenderer());
+        fileTable.getColumn("Delete").setCellEditor(
+            new DeleteButtonEditor(new JCheckBox()));
+        fileTable.getColumnModel().getColumn(deleteCol).setPreferredWidth(90);
+        fileTable.getColumnModel().getColumn(deleteCol).setMaxWidth(90);
 
         // Double click listener for rows
         fileTable.addMouseListener(new MouseAdapter() {
@@ -253,7 +254,7 @@ public class DashboardScreen extends JPanel {
             return;
 
         tableModel.setRowCount(0);
-        Object[] loadingRow = { "", "Loading files...", "", "", "", "", "" };
+        Object[] loadingRow = { "", "Loading files...", "", "", "", "", "", "" };
         tableModel.addRow(loadingRow);
 
         SwingWorker<List<UploadedFile>, Void> worker = new SwingWorker<List<UploadedFile>, Void>() {
@@ -276,7 +277,8 @@ public class DashboardScreen extends JPanel {
                                 uf.getUploadedAt().toString(),
                                 uf.getRiskBadge(),
                                 uf.getStatus(),
-                                "View Report"
+                                "View Report",
+                                Icons.DELETE_ICON + " Delete"
                         };
                         tableModel.addRow(rowData);
                     }
@@ -498,6 +500,108 @@ public class DashboardScreen extends JPanel {
         public boolean stopCellEditing() {
             isPushed = false;
             return super.stopCellEditing();
+        }
+    }
+
+    private class DeleteButtonRenderer extends JButton implements TableCellRenderer {
+        public DeleteButtonRenderer() {
+            setText(Icons.DELETE_ICON + " Delete");
+            setOpaque(true);
+            setBackground(new Color(139, 0, 0));  // dark red
+            setForeground(Color.WHITE);
+            setFont(new Font("Segoe UI", Font.BOLD, 12));
+            setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+            setFocusPainted(false);
+            setBorderPainted(false);
+        }
+        @Override
+        public Component getTableCellRendererComponent(
+                JTable table, Object value, boolean isSelected,
+                boolean hasFocus, int row, int column) {
+            return this;
+        }
+    }
+
+    private class DeleteButtonEditor extends DefaultCellEditor {
+        private JButton button;
+        private int fileId;
+        private String filename;
+        private boolean clicked;
+        public DeleteButtonEditor(JCheckBox checkBox) {
+            super(checkBox);
+            button = new JButton(Icons.DELETE_ICON + " Delete");
+            button.setOpaque(true);
+            button.setBackground(new Color(139, 0, 0));
+            button.setForeground(Color.WHITE);
+            button.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            button.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+            button.setFocusPainted(false);
+            button.setBorderPainted(false);
+            button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            button.addActionListener(e -> {
+                if (clicked) {
+                    // Show confirmation dialog
+                    int confirm = JOptionPane.showConfirmDialog(
+                        DashboardScreen.this,
+                        "<html>Are you sure you want to delete:<br>"
+                        + "<b>" + filename + "</b><br><br>"
+                        + "This will permanently remove the file and its analysis report.<br>"
+                        + "This action cannot be undone.</html>",
+                        "Confirm Delete",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE
+                    );
+                    if (confirm == JOptionPane.YES_OPTION) {
+                        int fId = fileId;
+                        new SwingWorker<Boolean, Void>() {
+                            @Override
+                            protected Boolean doInBackground() {
+                                return fileService.deleteFile(fId);
+                            }
+                            @Override
+                            protected void done() {
+                                try {
+                                    boolean success = get();
+                                    if (success) {
+                                        refreshTable();
+                                    } else {
+                                        JOptionPane.showMessageDialog(
+                                            DashboardScreen.this,
+                                            "Failed to delete the file. Please try again.",
+                                            "Delete Error",
+                                            JOptionPane.ERROR_MESSAGE
+                                        );
+                                    }
+                                } catch (Exception ex) {
+                                    System.err.println("Delete error: " + ex.getMessage());
+                                }
+                            }
+                        }.execute();
+                    }
+                }
+                clicked = false;
+                fireEditingStopped();
+            });
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(
+                JTable table, Object value, boolean isSelected, int row, int column) {
+            // Get fileId and filename from currentFiles for this row
+            if (currentFiles != null && currentFiles.size() > row) {
+                UploadedFile uf = currentFiles.get(row);
+                fileId = uf.getId();
+                filename = uf.getOriginalFilename();
+            }
+            clicked = true;
+            return button;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return Icons.DELETE_ICON + " Delete";
         }
     }
 }
