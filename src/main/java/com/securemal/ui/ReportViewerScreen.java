@@ -138,7 +138,7 @@ public class ReportViewerScreen extends JPanel {
         badge.setBorder(new EmptyBorder(5, 12, 5, 12));
         badge.setOpaque(false);
 
-        JButton pdfBtn = new JButton(Icons.PDF_ICON + " Export PDF");
+        JButton pdfBtn = new JButton("Export PDF");
         pdfBtn.setBackground(Config.COLOR_BUTTON);
         pdfBtn.setForeground(Color.WHITE);
         pdfBtn.setOpaque(true);
@@ -286,7 +286,7 @@ public class ReportViewerScreen extends JPanel {
                 String timestamp   = event.getOrDefault("timestamp", "static analysis");
                 String plainMsg    = event.getOrDefault("plain_message", "");
                 String whatItMeans = event.getOrDefault("what_this_means", "");
-                String iconText    = Icons.iconFor(severity);
+                String badgeText   = Icons.severityBadge(severity);
 
                 // --- Determine card colors ---
                 Color cardBg;
@@ -325,7 +325,7 @@ public class ReportViewerScreen extends JPanel {
                 content.setBackground(cardBg);
 
                 // Row 1: icon + timestamp header
-                JLabel headerLabel = new JLabel(iconText + "  " + timestamp);
+                JLabel headerLabel = new JLabel("<html>" + badgeText + "  " + timestamp + "</html>");
                 headerLabel.setForeground(Color.WHITE);
                 headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
                 headerLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -388,7 +388,7 @@ public class ReportViewerScreen extends JPanel {
         wrapper.setOpaque(false);
         wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JToggleButton toggleBtn = new JToggleButton(Icons.PDF_ICON + " Show Technical Details");
+        JToggleButton toggleBtn = new JToggleButton("Show Technical Details");
         toggleBtn.setBackground(Config.COLOR_BUTTON);
         toggleBtn.setForeground(Color.WHITE);
         toggleBtn.setOpaque(true);
@@ -414,7 +414,7 @@ public class ReportViewerScreen extends JPanel {
         toggleBtn.addActionListener(e -> {
             boolean selected = toggleBtn.isSelected();
             hiddenPanel.setVisible(selected);
-            toggleBtn.setText(selected ? "▼ Hide Technical Details" : Icons.PDF_ICON + " Show Technical Details");
+            toggleBtn.setText(selected ? "▼ Hide Technical Details" : "Show Technical Details");
             revalidate();
             repaint();
         });

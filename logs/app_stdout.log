@@ -1,0 +1,3 @@
+[AnalysisController] Working dir: C:\Users\lalit\SecureMal
+[AnalysisController] Command: python analysis_engine/static_analyzer.py --file C:\Users\lalit\SecureMal\uploads\56ea761c-9521-42da-9267-b37e13b1265d_fake_malware.exe
+[AnalysisController] Output length: 4370 chars

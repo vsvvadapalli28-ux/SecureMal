@@ -119,7 +119,7 @@ public class DashboardScreen extends JPanel {
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 6; // Only Action column is editable (for button click)
+                return column == 6 || column == 7; // Action and Delete columns are editable for buttons
             }
         };
 
@@ -181,9 +181,9 @@ public class DashboardScreen extends JPanel {
                         column);
                 String status = value != null ? value.toString() : "Pending";
                 if ("Pending".equals(status)) {
-                    label.setText(Icons.PENDING_ICON + " Pending");
+                    label.setText("Pending");
                 } else if ("Analysed".equals(status)) {
-                    label.setText(Icons.DONE_ICON + " Analysed");
+                    label.setText("Analysed");
                 } else {
                     label.setText(status);
                 }
@@ -276,7 +276,7 @@ public class DashboardScreen extends JPanel {
                                 uf.getRiskBadge(),
                                 uf.getStatus(),
                                 "View Report",
-                                Icons.DELETE_ICON + " Delete"
+                                "Delete"
                         };
                         tableModel.addRow(rowData);
                     }
@@ -527,6 +527,11 @@ public class DashboardScreen extends JPanel {
         public Component getTableCellRendererComponent(
                 JTable table, Object value, boolean isSelected,
                 boolean hasFocus, int row, int column) {
+            if (isSelected) {
+                setBackground(table.getSelectionBackground());
+            } else {
+                setBackground(new Color(139, 0, 0));
+            }
             return this;
         }
     }
@@ -538,7 +543,8 @@ public class DashboardScreen extends JPanel {
 
         public DeleteButtonEditor(JCheckBox checkBox) {
             super(checkBox);
-            button = new JButton(Icons.DELETE_ICON + " Delete");
+            setClickCountToStart(1);
+            button = new JButton("Delete");
             button.setOpaque(true);
             button.setBackground(new Color(139, 0, 0));
             button.setForeground(Color.WHITE);
@@ -549,7 +555,7 @@ public class DashboardScreen extends JPanel {
             button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
             button.addActionListener(e -> {
-                stopCellEditing();
+                fireEditingStopped();
                 if (currentFiles != null && currentFiles.size() > currentRow) {
                     UploadedFile uf = currentFiles.get(currentRow);
                     int fId = uf.getId();
@@ -608,9 +614,14 @@ public class DashboardScreen extends JPanel {
         }
 
         @Override
+        public boolean shouldSelectCell(java.util.EventObject anEvent) {
+            return true;
+        }
+
+        @Override
         public Object getCellEditorValue() {
             isPushed = false;
-            return Icons.DELETE_ICON + " Delete";
+            return "Delete";
         }
 
         @Override

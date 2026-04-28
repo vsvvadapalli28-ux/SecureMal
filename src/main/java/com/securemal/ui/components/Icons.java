@@ -4,21 +4,21 @@ public final class Icons {
     private Icons() {}
 
     // Severity indicators — use colored HTML spans instead of emoji
-    public static final String HIGH_ICON    = "[HIGH]";
-    public static final String MEDIUM_ICON  = "[MED]";
-    public static final String LOW_ICON     = "[LOW]";
-    public static final String PENDING_ICON = "[...]";
-    public static final String DONE_ICON    = "[OK]";
+    public static final String HIGH_ICON    = "HIGH";
+    public static final String MEDIUM_ICON  = "MED";
+    public static final String LOW_ICON     = "LOW";
+    public static final String PENDING_ICON = "...";
+    public static final String DONE_ICON    = "OK";
 
-    // Section headers — use Unicode symbols that Java fonts support
-    public static final String SUMMARY_ICON  = "\u2139";  // ℹ
-    public static final String TIMELINE_ICON = "\u23F1";  // ⏱
-    public static final String FILE_ICON     = "\u25A0";  // ■
-    public static final String BACK_ICON     = "\u2190";  // ←
-    public static final String PDF_ICON      = "\u25B6";  // ▶
-    public static final String UPLOAD_ICON   = "\u2191";  // ↑
-    public static final String DELETE_ICON   = "\u2715";  // ✕
-    public static final String ANALYSE_ICON  = "\u25B6";  // ▶
+    // Section headers — use ASCII-safe symbols to avoid font fallback issues
+    public static final String SUMMARY_ICON  = "[i]";
+    public static final String TIMELINE_ICON = "[T]";
+    public static final String FILE_ICON     = "";
+    public static final String BACK_ICON     = "<";
+    public static final String PDF_ICON      = "";
+    public static final String UPLOAD_ICON   = "^";
+    public static final String DELETE_ICON   = "";
+    public static final String ANALYSE_ICON  = "[RUN]";
 
     /**
      * Returns an HTML-styled severity badge string for use in JLabel HTML.

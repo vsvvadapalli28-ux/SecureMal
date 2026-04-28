@@ -30,7 +30,7 @@ public class LoginScreen extends JPanel {
         card.setBorder(new EmptyBorder(40, 60, 40, 60));
         
         // Title
-        JLabel title = new JLabel(Icons.FILE_ICON + " SecureMal");
+        JLabel title = new JLabel("SecureMal");
         title.setFont(new Font("SansSerif", Font.BOLD, 28));
         title.setForeground(Config.COLOR_TEXT_WHITE);
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
