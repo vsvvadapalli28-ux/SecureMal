@@ -161,15 +161,16 @@ public class ReportViewerScreen extends JPanel {
     }
 
     private void buildUI(AnalysisReport report) {
+        removeAll();
+        setLayout(new BorderLayout());
+        setBackground(Config.COLOR_BG_DARK);
+
         System.out.println("DEBUG: buildUI called with report: " + report.getFileType());
         mainContainer = new JPanel();
         mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
         mainContainer.setBackground(Config.COLOR_BG_DARK);
         mainContainer.setBorder(new EmptyBorder(20, 20, 20, 20));
         mainContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        mainContainer.setPreferredSize(
-            new Dimension(860, mainContainer.getPreferredSize().height));
 
         buildHeader(report);
         System.out.println("DEBUG: after buildHeader, count: " + mainContainer.getComponentCount());
@@ -361,7 +362,7 @@ public class ReportViewerScreen extends JPanel {
         ));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel(Icons.SUMMARY_ICON + " What did the analysis find?");
+        JLabel title = new JLabel("What did the analysis find?");
         title.setForeground(Color.WHITE);
         title.setFont(new Font("Segoe UI", Font.BOLD, 14));
         title.setBorder(new EmptyBorder(0, 0, 10, 0));
@@ -390,7 +391,7 @@ public class ReportViewerScreen extends JPanel {
         timelinePanel.setOpaque(false);
         timelinePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel(Icons.TIMELINE_ICON + " What did this file do?");
+        JLabel title = new JLabel("What did this file do?");
         title.setForeground(Color.WHITE);
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setBorder(new EmptyBorder(0, 0, 15, 0));
