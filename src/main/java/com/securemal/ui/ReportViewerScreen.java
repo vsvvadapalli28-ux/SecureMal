@@ -163,13 +163,28 @@ public class ReportViewerScreen extends JPanel {
     private void buildUI(AnalysisReport report) {
         removeAll();
         setLayout(new BorderLayout());
-        setBackground(Config.COLOR_BG_DARK);
+        setBackground(new Color(13, 13, 26));
+        setOpaque(true);
 
         System.out.println("DEBUG: buildUI called with report: " + report.getFileType());
-        mainContainer = new JPanel();
+        
+        // FIX B: mainContainer with overridden getPreferredSize for BoxLayout inside JScrollPane
+        mainContainer = new JPanel() {
+            @Override
+            public Dimension getPreferredSize() {
+                int parentWidth = (getParent() != null && getParent().getWidth() > 0)
+                    ? getParent().getWidth() : 900;
+                Dimension natural = super.getPreferredSize();
+                return new Dimension(
+                    Math.max(parentWidth, natural.width),
+                    natural.height
+                );
+            }
+        };
         mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
-        mainContainer.setBackground(Config.COLOR_BG_DARK);
-        mainContainer.setBorder(new EmptyBorder(20, 20, 20, 20));
+        mainContainer.setBackground(new Color(13, 13, 26));
+        mainContainer.setOpaque(true);
+        mainContainer.setBorder(BorderFactory.createEmptyBorder(0, 0, 40, 0));
         mainContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         buildHeader(report);
@@ -201,21 +216,45 @@ public class ReportViewerScreen extends JPanel {
         buildTechDetails(report);
         System.out.println("DEBUG: after buildTechDetails, count: " + mainContainer.getComponentCount());
 
-        scrollPane = new JScrollPane(mainContainer);
-        scrollPane.setViewportView(mainContainer);
-        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        // FIX C: Create scrollPane and set viewport LAST (after all content added)
+        scrollPane = new JScrollPane();
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.setBorder(null);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setBackground(new Color(13, 13, 26));
+        scrollPane.getViewport().setBackground(new Color(13, 13, 26));
         scrollPane.getViewport().setOpaque(true);
-        scrollPane.getViewport().setBackground(Config.COLOR_BG_DARK);
+        
+        // CRITICAL: Set viewport LAST, after all content is in mainContainer
+        scrollPane.setViewportView(mainContainer);
 
         System.out.println("DEBUG: mainContainer component count: " + mainContainer.getComponentCount());
         System.out.println("DEBUG: scrollPane viewport: " + scrollPane.getViewport());
 
+        // FIX A: Add scrollPane using BorderLayout.CENTER so it fills available space
         add(scrollPane, BorderLayout.CENTER);
-        scrollPane.revalidate();
-        scrollPane.repaint();
+        
+        // FIX F: Add component resize listener
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                mainContainer.revalidate();
+                scrollPane.revalidate();
+            }
+
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                SwingUtilities.invokeLater(() -> {
+                    mainContainer.revalidate();
+                    mainContainer.repaint();
+                    scrollPane.revalidate();
+                    scrollPane.repaint();
+                    scrollPane.getVerticalScrollBar().setValue(0);
+                });
+            }
+        });
+        
         revalidate();
         repaint();
     }
@@ -223,6 +262,8 @@ public class ReportViewerScreen extends JPanel {
     private void buildHeader(AnalysisReport report) {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
+        // FIX E: Component alignment for BoxLayout
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JButton backBtn = new JButton(Icons.BACK_ICON + " Back");
         backBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -275,6 +316,8 @@ public class ReportViewerScreen extends JPanel {
         rightPanel.add(pdfBtn);
         header.add(rightPanel, BorderLayout.EAST);
 
+        // FIX E: Set max size AFTER header is fully constructed
+        header.setMaximumSize(new Dimension(Integer.MAX_VALUE, header.getPreferredSize().height + 10));
         mainContainer.add(header);
     }
 
@@ -350,6 +393,11 @@ public class ReportViewerScreen extends JPanel {
         panel.add(Box.createRigidArea(new Dimension(0, 5)));
         panel.add(riskLabel);
 
+        // FIX E: Set max size for fixed-height risk panel
+        panel.setMaximumSize(new Dimension(
+            Integer.MAX_VALUE, 
+            panel.getPreferredSize().height + 10));
+        
         mainContainer.add(panel);
     }
 
@@ -360,6 +408,7 @@ public class ReportViewerScreen extends JPanel {
                 BorderFactory.createLineBorder(new Color(40, 60, 100)),
                 new EmptyBorder(15, 15, 15, 15)
         ));
+        // FIX E: Component alignment (summary grows naturally, no max size)
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel title = new JLabel("What did the analysis find?");
@@ -389,6 +438,7 @@ public class ReportViewerScreen extends JPanel {
         JPanel timelinePanel = new JPanel();
         timelinePanel.setLayout(new BoxLayout(timelinePanel, BoxLayout.Y_AXIS));
         timelinePanel.setOpaque(false);
+        // FIX E: Component alignment (timeline grows naturally, no max size)
         timelinePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel title = new JLabel("What did this file do?");
@@ -509,6 +559,7 @@ public class ReportViewerScreen extends JPanel {
         JPanel wrapper = new JPanel();
         wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.Y_AXIS));
         wrapper.setOpaque(false);
+        // FIX E: Component alignment (tech details grows naturally, no max size)
         wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JToggleButton toggleBtn = new JToggleButton("Show Technical Details");

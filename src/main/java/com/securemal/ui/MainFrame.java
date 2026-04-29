@@ -1,17 +1,20 @@
 package com.securemal.ui;
 
+import java.awt.CardLayout;
+
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+
 import com.securemal.config.Config;
-import javax.swing.*;
-import java.awt.*;
 
 public class MainFrame extends JFrame {
     
-    private CardLayout cardLayout;
-    private JPanel mainPanel;
+    private final CardLayout cardLayout;
+    private final JPanel mainPanel;
     
-    private LoginScreen loginScreen;
-    private RegisterScreen registerScreen;
-    private DashboardScreen dashboardScreen;
+    private final LoginScreen loginScreen;
+    private final RegisterScreen registerScreen;
+    private final DashboardScreen dashboardScreen;
 
     public MainFrame() {
         setTitle(Config.APP_TITLE);
@@ -46,9 +49,28 @@ public class MainFrame extends JFrame {
         cardLayout.show(mainPanel, "DASHBOARD");
     }
     
+    private ReportViewerScreen reportScreen;
+    private JPanel cardPanel;
+
     public void showReport(int fileId) {
-        ReportViewerScreen reportScreen = new ReportViewerScreen(this, fileId);
+        System.out.println("DEBUG: showReport called with fileId: " + fileId);
+        // FIX D: Remove old report screen if exists
+        for (java.awt.Component c : mainPanel.getComponents()) {
+            if ("REPORT".equals(c.getName())) {
+                mainPanel.remove(c);
+                break;
+            }
+        }
+
+        reportScreen = new ReportViewerScreen(this, fileId);
+        reportScreen.setName("REPORT");
         mainPanel.add(reportScreen, "REPORT");
         cardLayout.show(mainPanel, "REPORT");
+
+        // FIX D: Force full layout pass to give the new screen its actual pixel size
+        mainPanel.revalidate();
+        mainPanel.repaint();
+        getContentPane().revalidate();
+        getContentPane().repaint();
     }
 }
