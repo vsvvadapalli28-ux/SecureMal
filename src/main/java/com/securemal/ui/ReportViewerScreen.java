@@ -184,7 +184,7 @@ public class ReportViewerScreen extends JPanel {
         mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
         mainContainer.setBackground(new Color(13, 13, 26));
         mainContainer.setOpaque(true);
-        mainContainer.setBorder(BorderFactory.createEmptyBorder(0, 0, 40, 0));
+        mainContainer.setBorder(BorderFactory.createEmptyBorder(20, 15, 40, 15));
         mainContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         buildHeader(report);
@@ -279,7 +279,9 @@ public class ReportViewerScreen extends JPanel {
         });
         header.add(backBtn, BorderLayout.WEST);
 
-        JLabel title = new JLabel(report.getFileType(), SwingConstants.CENTER);
+        JLabel title = new JLabel("<html><body style='width:260px;'>"
+            + report.getFileType() + "</body></html>", SwingConstants.CENTER);
+        title.setToolTipText(report.getFileType());
         title.setFont(new Font("Segoe UI", Font.BOLD, 18));
         title.setForeground(Color.WHITE);
         header.add(title, BorderLayout.CENTER);
@@ -371,9 +373,9 @@ public class ReportViewerScreen extends JPanel {
         pb.setValue(report.getRiskScore());
         pb.setForeground(report.getRiskBarColor());
         pb.setBackground(Config.COLOR_ACCENT);
-        pb.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
+        pb.setMaximumSize(new Dimension(600, 20));
+        pb.setPreferredSize(new Dimension(600, 20));
         pb.setAlignmentX(Component.LEFT_ALIGNMENT);
-        pb.setPreferredSize(new Dimension(200, 20));
 
         JLabel label = new JLabel("Risk Score: " + report.getRiskScore() + " / 100");
         label.setForeground(Color.WHITE);
@@ -423,14 +425,18 @@ public class ReportViewerScreen extends JPanel {
         }
         summary = summary.replaceAll("\\*\\*([^\\*]+)\\*\\*", "<b>$1</b>");
 
-        JLabel summaryLabel = new JLabel("<html><body style='width:100%; font-family:Segoe UI; "
-               + "font-size:13px; color:#ffffff;'>"
-               + summary + "</body></html>");
-        summaryLabel.setForeground(Color.WHITE);
-        summaryLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        summaryLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JTextArea summaryArea = new JTextArea(summary);
+        summaryArea.setLineWrap(true);
+        summaryArea.setWrapStyleWord(true);
+        summaryArea.setEditable(false);
+        summaryArea.setOpaque(false);
+        summaryArea.setForeground(Color.WHITE);
+        summaryArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        summaryArea.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        summaryArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+        summaryArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-        panel.add(summaryLabel, BorderLayout.CENTER);
+        panel.add(summaryArea, BorderLayout.CENTER);
         mainContainer.add(panel);
     }
 
@@ -507,28 +513,33 @@ public class ReportViewerScreen extends JPanel {
                 headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
                 headerLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-                JLabel msgLabel = new JLabel(
-                    "<html><div style='width:100%; font-family:Segoe UI; "
-                    + "font-size:13px; color:#ffffff; margin-top:6px;'>"
-                    + plainMsg
-                    + "</div></html>"
-                );
-                msgLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JTextArea msgArea = new JTextArea(plainMsg);
+                msgArea.setLineWrap(true);
+                msgArea.setWrapStyleWord(true);
+                msgArea.setEditable(false);
+                msgArea.setOpaque(false);
+                msgArea.setForeground(Color.WHITE);
+                msgArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                msgArea.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+                msgArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+                msgArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-                JLabel infoLabel = new JLabel(
-                    "<html><div style='width:100%; font-family:Segoe UI; "
-                    + "font-size:12px; color:#a0a0b0; font-style:italic; "
-                    + "margin-top:4px;'>"
-                    + "\u2139&nbsp; " + whatItMeans
-                    + "</div></html>"
-                );
-                infoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JTextArea infoArea = new JTextArea("\u2139 " + whatItMeans);
+                infoArea.setLineWrap(true);
+                infoArea.setWrapStyleWord(true);
+                infoArea.setEditable(false);
+                infoArea.setOpaque(false);
+                infoArea.setForeground(new Color(160, 160, 176));
+                infoArea.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+                infoArea.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+                infoArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+                infoArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
                 content.add(headerLabel);
                 content.add(Box.createVerticalStrut(4));
-                content.add(msgLabel);
+                content.add(msgArea);
                 content.add(Box.createVerticalStrut(2));
-                content.add(infoLabel);
+                content.add(infoArea);
 
                 card.add(content, BorderLayout.CENTER);
 
@@ -537,6 +548,7 @@ public class ReportViewerScreen extends JPanel {
                 wrapper.add(card, BorderLayout.CENTER);
                 wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
                 wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+                wrapper.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
                 timelinePanel.add(wrapper);
                 timelinePanel.add(Box.createVerticalStrut(10));
