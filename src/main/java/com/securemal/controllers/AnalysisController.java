@@ -15,6 +15,7 @@ import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.concurrent.TimeUnit;
 
 public class AnalysisController {
     
@@ -61,15 +62,23 @@ public class AnalysisController {
             }
         }
 
-        process.waitFor();
-        if (errors.length() > 0) {
-            System.err.println("[Python stderr]: " + errors.toString());
+        if (!process.waitFor(30, TimeUnit.SECONDS)) {
+            process.destroyForcibly();
+            throw new RuntimeException("Script execution timed out after 30 seconds");
+        }
+
+        String stderr = errors.toString().trim();
+        if (!stderr.isEmpty()) {
+            System.err.println("[Python stderr]: " + stderr);
+            if (stderr.contains("Could not find a registered machine")) {
+                throw new RuntimeException("Could not find a registered machine");
+            }
         }
 
         String result = output.toString().trim();
         System.out.println("[AnalysisController] Output length: " + result.length() + " chars");
         if (result.isEmpty()) {
-            throw new RuntimeException("Python script returned empty output. stderr: " + errors.toString().trim());
+            throw new RuntimeException("Python script returned empty output. stderr: " + stderr);
         }
         return result;
     }
@@ -164,7 +173,12 @@ public class AnalysisController {
                     javax.swing.JOptionPane.showMessageDialog(dashboard, "Dynamic Analysis Complete!", "Success", javax.swing.JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception e) {
                     e.printStackTrace();
-                    javax.swing.JOptionPane.showMessageDialog(dashboard, "Dynamic Analysis failed: " + e.getMessage(), "Error", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    String msg = e.getMessage();
+                    if (msg != null && msg.contains("Could not find a registered machine")) {
+                        javax.swing.JOptionPane.showMessageDialog(dashboard, "Dynamic Analysis requires a VirtualBox VM named 'SecureMal-Clean' with a snapshot named 'Clean'. Please set this up in VirtualBox first. Static analysis results are still available.", "Dynamic Analysis Unavailable", javax.swing.JOptionPane.WARNING_MESSAGE);
+                    } else {
+                        javax.swing.JOptionPane.showMessageDialog(dashboard, "Dynamic Analysis failed: " + msg, "Error", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    }
                 }
             }
         };

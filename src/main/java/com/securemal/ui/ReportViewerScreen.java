@@ -16,11 +16,12 @@ import java.awt.geom.RoundRectangle2D;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 public class ReportViewerScreen extends JPanel {
-    private MainFrame mainFrame;
-    private int fileId;
-    private ReportService reportService;
+    private final MainFrame mainFrame;
+    private final int fileId;
+    private final ReportService reportService;
 
     private JPanel mainContainer;
     private JScrollPane scrollPane;
@@ -33,15 +34,45 @@ public class ReportViewerScreen extends JPanel {
         setLayout(new BorderLayout());
         setBackground(Config.COLOR_BG_DARK);
 
-        JLabel loadingLabel = new JLabel("Loading Report...", SwingConstants.CENTER);
-        loadingLabel.setForeground(Config.COLOR_TEXT_WHITE);
-        loadingLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        add(loadingLabel, BorderLayout.CENTER);
-
+        showLoading();
         loadReportAsync();
     }
 
+    private void showLoading() {
+        removeAll();
+        setLayout(new BorderLayout());
+        setBackground(new Color(13, 13, 26));
+
+        JPanel loadingPanel = new JPanel(new GridBagLayout());
+        loadingPanel.setBackground(new Color(13, 13, 26));
+
+        JLabel loadingLabel = new JLabel("Loading report...");
+        loadingLabel.setForeground(new Color(160, 160, 176));
+        loadingLabel.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+
+        JProgressBar spinner = new JProgressBar();
+        spinner.setIndeterminate(true);
+        spinner.setPreferredSize(new Dimension(200, 6));
+        spinner.setBackground(new Color(42, 42, 74));
+        spinner.setForeground(new Color(15, 52, 96));
+        spinner.setBorderPainted(false);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.insets = new Insets(0, 0, 16, 0);
+        loadingPanel.add(loadingLabel, gbc);
+        gbc.gridy = 1;
+        loadingPanel.add(spinner, gbc);
+
+        add(loadingPanel, BorderLayout.CENTER);
+        revalidate();
+        repaint();
+    }
+
     private void loadReportAsync() {
+        showLoading();
+        final Timer timeoutTimer = new Timer(10000, null);
+
         SwingWorker<AnalysisReport, Void> worker = new SwingWorker<AnalysisReport, Void>() {
             @Override
             protected AnalysisReport doInBackground() throws Exception {
@@ -50,55 +81,147 @@ public class ReportViewerScreen extends JPanel {
 
             @Override
             protected void done() {
+                timeoutTimer.stop();
                 try {
                     AnalysisReport report = get();
-                    removeAll();
-                    if (report != null) {
-                        buildUI(report);
-                    } else {
-                        JLabel error = new JLabel("Failed to load report.", SwingConstants.CENTER);
-                        error.setForeground(Color.RED);
-                        add(error, BorderLayout.CENTER);
+
+                    if (report == null) {
+                        showError("No report found for this file. "
+                            + "Please run the analysis again.");
+                        return;
                     }
-                    revalidate();
-                    repaint();
-                } catch (Exception e) {
-                    e.printStackTrace();
+
+                    // render everything
+                    buildUI(report);
+
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    showError("Report loading was interrupted.");
+                } catch (ExecutionException e) {
+                    // Print the REAL cause to the console so we can see it
+                    System.err.println("=== ReportViewerScreen load error ===");
+                    e.getCause().printStackTrace();
+                    showError("Failed to load report: " + e.getCause().getMessage());
                 }
             }
         };
+
+        timeoutTimer.addActionListener(e -> {
+            if (!worker.isDone()) {
+                worker.cancel(true);
+                showError("Report loading timed out after 10 seconds.");
+            }
+        });
+        timeoutTimer.setRepeats(false);
+        timeoutTimer.start();
+
         worker.execute();
     }
 
+    private void showError(String message) {
+        removeAll();
+        setLayout(new BorderLayout());
+        setBackground(new Color(13, 13, 26));
+
+        JPanel errorPanel = new JPanel(new GridBagLayout());
+        errorPanel.setBackground(new Color(13, 13, 26));
+
+        JLabel icon = new JLabel("\u26A0");  // ⚠
+        icon.setFont(new Font("Segoe UI", Font.PLAIN, 48));
+        icon.setForeground(new Color(243, 156, 18));
+
+        JLabel msg = new JLabel(
+            "<html><div style='text-align:center; width:400px;'>"
+            + message + "</div></html>"
+        );
+        msg.setForeground(new Color(160, 160, 176));
+        msg.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
+        JButton backBtn = new JButton("\u2190 Back to Dashboard");
+        backBtn.setBackground(new Color(15, 52, 96));
+        backBtn.setForeground(Color.WHITE);
+        backBtn.setFocusPainted(false);
+        backBtn.setBorderPainted(false);
+        backBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        backBtn.addActionListener(e -> mainFrame.showDashboard());
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.insets = new Insets(0, 0, 16, 0);
+        errorPanel.add(icon, gbc);
+        gbc.gridy = 1;
+        errorPanel.add(msg, gbc);
+        gbc.gridy = 2;
+        gbc.insets = new Insets(24, 0, 0, 0);
+        errorPanel.add(backBtn, gbc);
+
+        add(errorPanel, BorderLayout.CENTER);
+        revalidate();
+        repaint();
+    }
+
     private void buildUI(AnalysisReport report) {
+        System.out.println("DEBUG: buildUI called with report: " + report.getFileType());
         mainContainer = new JPanel();
         mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
         mainContainer.setBackground(Config.COLOR_BG_DARK);
         mainContainer.setBorder(new EmptyBorder(20, 20, 20, 20));
+        mainContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        mainContainer.setPreferredSize(
+            new Dimension(860, mainContainer.getPreferredSize().height));
 
         buildHeader(report);
+        System.out.println("DEBUG: after buildHeader, count: " + mainContainer.getComponentCount());
+
+        // Add notice if dynamic analysis is missing
+        if (report.getAnalysisType() == null || !report.getAnalysisType().equals("Dynamic Analysis")) {
+            JPanel noticePanel = new JPanel();
+            noticePanel.setBackground(new Color(255, 193, 7)); // yellow
+            noticePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+            JLabel noticeLabel = new JLabel("Dynamic analysis unavailable — VirtualBox VM not configured. Showing static analysis results only.");
+            noticeLabel.setForeground(Color.BLACK);
+            noticeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            noticePanel.add(noticeLabel);
+            mainContainer.add(noticePanel);
+            mainContainer.add(Box.createRigidArea(new Dimension(0, 10)));
+        }
+
         mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
         buildRiskScore(report);
+        System.out.println("DEBUG: after buildRiskScore, count: " + mainContainer.getComponentCount());
         mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
         buildSummary(report);
+        System.out.println("DEBUG: after buildSummary, count: " + mainContainer.getComponentCount());
         mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
         buildTimeline(report);
+        System.out.println("DEBUG: after buildTimeline, count: " + mainContainer.getComponentCount());
         mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
         buildTechDetails(report);
+        System.out.println("DEBUG: after buildTechDetails, count: " + mainContainer.getComponentCount());
 
         scrollPane = new JScrollPane(mainContainer);
+        scrollPane.setViewportView(mainContainer);
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         scrollPane.setBorder(null);
+        scrollPane.getViewport().setOpaque(true);
+        scrollPane.getViewport().setBackground(Config.COLOR_BG_DARK);
+
+        System.out.println("DEBUG: mainContainer component count: " + mainContainer.getComponentCount());
+        System.out.println("DEBUG: scrollPane viewport: " + scrollPane.getViewport());
 
         add(scrollPane, BorderLayout.CENTER);
+        scrollPane.revalidate();
+        scrollPane.repaint();
+        revalidate();
+        repaint();
     }
 
     private void buildHeader(AnalysisReport report) {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
         JButton backBtn = new JButton(Icons.BACK_ICON + " Back");
         backBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -205,14 +328,20 @@ public class ReportViewerScreen extends JPanel {
         pb.setForeground(report.getRiskBarColor());
         pb.setBackground(Config.COLOR_ACCENT);
         pb.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
+        pb.setAlignmentX(Component.LEFT_ALIGNMENT);
+        pb.setPreferredSize(new Dimension(200, 20));
 
         JLabel label = new JLabel("Risk Score: " + report.getRiskScore() + " / 100");
         label.setForeground(Color.WHITE);
         label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        label.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
 
         JLabel riskLabel = new JLabel(report.getRiskLabel());
         riskLabel.setForeground(report.getRiskBarColor());
         riskLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        riskLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        riskLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
 
         panel.add(label);
         panel.add(Box.createRigidArea(new Dimension(0, 5)));
@@ -242,13 +371,14 @@ public class ReportViewerScreen extends JPanel {
         if (summary == null || summary.isBlank()) {
             summary = "Analysis complete. No detailed summary available.";
         }
-        // Convert word to HTML bold
         summary = summary.replaceAll("\\*\\*([^\\*]+)\\*\\*", "<b>$1</b>");
-        JLabel summaryLabel = new JLabel("<html><body style='width:480px; "
-               + "font-family:Segoe UI; font-size:13px; color:#ffffff;'>"
+
+        JLabel summaryLabel = new JLabel("<html><body style='width:100%; font-family:Segoe UI; "
+               + "font-size:13px; color:#ffffff;'>"
                + summary + "</body></html>");
         summaryLabel.setForeground(Color.WHITE);
         summaryLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        summaryLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         panel.add(summaryLabel, BorderLayout.CENTER);
         mainContainer.add(panel);
@@ -264,10 +394,10 @@ public class ReportViewerScreen extends JPanel {
         title.setForeground(Color.WHITE);
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setBorder(new EmptyBorder(0, 0, 15, 0));
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
         timelinePanel.add(title);
 
         List<Map<String, String>> events = JsonUtil.parseTimelineArray(report.getTimelineJson());
-        // Clear any previous content
         timelinePanel.removeAll();
         timelinePanel.add(title);
         
@@ -288,7 +418,6 @@ public class ReportViewerScreen extends JPanel {
                 String whatItMeans = event.getOrDefault("what_this_means", "");
                 String badgeText   = Icons.severityBadge(severity);
 
-                // --- Determine card colors ---
                 Color cardBg;
                 Color borderColor;
                 switch (severity.toLowerCase()) {
@@ -307,41 +436,36 @@ public class ReportViewerScreen extends JPanel {
                         break;
                 }
 
-                // --- Build the card as a JPanel with BorderLayout ---
                 JPanel card = new JPanel(new BorderLayout(0, 6));
                 card.setBackground(cardBg);
                 card.setOpaque(true);
-
-                // Left colored accent border via MatteBorder + EmptyBorder
                 card.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createMatteBorder(0, 4, 0, 0, borderColor),
                     BorderFactory.createEmptyBorder(12, 14, 12, 14)
                 ));
+                card.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-                // --- Content panel inside card (vertical stack) ---
                 JPanel content = new JPanel();
                 content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
                 content.setOpaque(false);
                 content.setBackground(cardBg);
+                content.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-                // Row 1: icon + timestamp header
                 JLabel headerLabel = new JLabel("<html>" + badgeText + "  " + timestamp + "</html>");
                 headerLabel.setForeground(Color.WHITE);
                 headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
                 headerLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-                // Row 2: plain message
                 JLabel msgLabel = new JLabel(
-                    "<html><div style='width:530px; font-family:Segoe UI; "
+                    "<html><div style='width:100%; font-family:Segoe UI; "
                     + "font-size:13px; color:#ffffff; margin-top:6px;'>"
                     + plainMsg
                     + "</div></html>"
                 );
                 msgLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-                // Row 3: what this means
                 JLabel infoLabel = new JLabel(
-                    "<html><div style='width:530px; font-family:Segoe UI; "
+                    "<html><div style='width:100%; font-family:Segoe UI; "
                     + "font-size:12px; color:#a0a0b0; font-style:italic; "
                     + "margin-top:4px;'>"
                     + "\u2139&nbsp; " + whatItMeans
@@ -357,22 +481,20 @@ public class ReportViewerScreen extends JPanel {
 
                 card.add(content, BorderLayout.CENTER);
 
-                // --- Wrapper to enforce full width and left alignment ---
                 JPanel wrapper = new JPanel(new BorderLayout());
                 wrapper.setOpaque(false);
                 wrapper.add(card, BorderLayout.CENTER);
                 wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
+                wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
                 timelinePanel.add(wrapper);
                 timelinePanel.add(Box.createVerticalStrut(10));
             }
         }
         
-        // CRITICAL: always call these two after modifying a visible panel
         timelinePanel.revalidate();
         timelinePanel.repaint();
         
-        // Scroll to top after loading
         SwingUtilities.invokeLater(() -> {
             if (scrollPane != null) {
                 scrollPane.getVerticalScrollBar().setValue(0);
@@ -402,6 +524,7 @@ public class ReportViewerScreen extends JPanel {
         hiddenPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         hiddenPanel.setVisible(false);
         hiddenPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        hiddenPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
         hiddenPanel.add(createTechRow("MD5:", report.getMd5Hash()));
         hiddenPanel.add(createTechRow("SHA256:", report.getSha256Hash()));
@@ -427,24 +550,34 @@ public class ReportViewerScreen extends JPanel {
     }
 
     private JPanel createTechRow(String labelText, String valText) {
-        JPanel row = new JPanel(new BorderLayout(10, 0));
+        JPanel row = new JPanel(new BorderLayout(10, 8));
         row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        row.setBorder(new EmptyBorder(0, 0, 8, 0));
 
         JLabel label = new JLabel(labelText);
         label.setForeground(Color.LIGHT_GRAY);
         label.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        label.setPreferredSize(new Dimension(120, 20));
+        label.setPreferredSize(new Dimension(140, 20));
+        label.setVerticalAlignment(SwingConstants.TOP);
+        label.setMaximumSize(new Dimension(140, 20));
 
-        JTextField valField = new JTextField(valText != null ? valText : "N/A");
-        valField.setEditable(false);
-        valField.setBackground(new Color(20, 30, 50));
-        valField.setForeground(Color.WHITE);
-        valField.setFont(new Font("Monospaced", Font.PLAIN, 11));
-        valField.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        JTextArea valArea = new JTextArea(valText != null ? valText : "N/A");
+        valArea.setEditable(false);
+        valArea.setLineWrap(true);
+        valArea.setWrapStyleWord(true);
+        valArea.setOpaque(true);
+        valArea.setBackground(new Color(20, 30, 50));
+        valArea.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        valArea.setFocusable(false);
+        valArea.setForeground(Color.WHITE);
+        valArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        valArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+        valArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
         row.add(label, BorderLayout.WEST);
-        row.add(valField, BorderLayout.CENTER);
+        row.add(valArea, BorderLayout.CENTER);
         return row;
     }
 }
