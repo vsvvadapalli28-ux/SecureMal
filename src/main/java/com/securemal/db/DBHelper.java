@@ -18,7 +18,7 @@ public class DBHelper {
         if (rs != null) {
             try {
                 rs.close();
-            } catch (Exception ignored) {}
+            } catch (java.sql.SQLException ignored) {}
         }
     }
 
@@ -30,7 +30,7 @@ public class DBHelper {
         if (stmt != null) {
             try {
                 stmt.close();
-            } catch (Exception ignored) {}
+            } catch (java.sql.SQLException ignored) {}
         }
     }
 
@@ -42,7 +42,7 @@ public class DBHelper {
         if (pstmt != null) {
             try {
                 pstmt.close();
-            } catch (Exception ignored) {}
+            } catch (java.sql.SQLException ignored) {}
         }
     }
 
@@ -54,7 +54,7 @@ public class DBHelper {
         if (conn != null) {
             try {
                 conn.close();
-            } catch (Exception ignored) {}
+            } catch (java.sql.SQLException ignored) {}
         }
     }
 }

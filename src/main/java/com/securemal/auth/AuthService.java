@@ -1,15 +1,15 @@
 package com.securemal.auth;
 
-import com.securemal.db.DBConnection;
-import com.securemal.db.DBHelper;
-import com.securemal.models.User;
-import org.mindrot.jbcrypt.BCrypt;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+
+import org.mindrot.jbcrypt.BCrypt;
+
+import com.securemal.db.DBConnection;
+import com.securemal.models.User;
 
 public class AuthService {
 
@@ -29,13 +29,10 @@ public class AuthService {
         }
 
         String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
-        Connection conn = null;
-        PreparedStatement pstmt = null;
 
-        try {
-            conn = DBConnection.getInstance().getConnection();
-            String sql = "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)";
-            pstmt = conn.prepareStatement(sql);
+        String sql = "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)";
+        try (Connection conn = DBConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username.trim());
             pstmt.setString(2, email.trim().toLowerCase());
             pstmt.setString(3, hashedPassword);
@@ -47,42 +44,32 @@ public class AuthService {
             if ("23000".equals(e.getSQLState())) {
                 return -1;
             }
-            e.printStackTrace();
+            System.err.println("Failed to register user: " + e.getMessage());
             return 0;
-        } finally {
-            DBHelper.closeQuietly(pstmt);
         }
     }
 
     public User loginUser(String email, String password) {
         if (email == null || password == null) return null;
 
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-
-        try {
-            conn = DBConnection.getInstance().getConnection();
-            String sql = "SELECT * FROM users WHERE email = ?";
-            pstmt = conn.prepareStatement(sql);
+        String sql = "SELECT * FROM users WHERE email = ?";
+        try (Connection conn = DBConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, email);
-            
-            rs = pstmt.executeQuery();
-            if (rs.next()) {
-                String storedHash = rs.getString("password_hash");
-                if (BCrypt.checkpw(password, storedHash)) {
-                    int id = rs.getInt("id");
-                    String username = rs.getString("username");
-                    String userEmail = rs.getString("email");
-                    Timestamp createdAt = rs.getTimestamp("created_at");
-                    return new User(id, username, storedHash, userEmail, createdAt);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    String storedHash = rs.getString("password_hash");
+                    if (BCrypt.checkpw(password, storedHash)) {
+                        int id = rs.getInt("id");
+                        String username = rs.getString("username");
+                        String userEmail = rs.getString("email");
+                        Timestamp createdAt = rs.getTimestamp("created_at");
+                        return new User(id, username, storedHash, userEmail, createdAt);
+                    }
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            DBHelper.closeQuietly(rs);
-            DBHelper.closeQuietly(pstmt);
+            System.err.println("Failed to login user: " + e.getMessage());
         }
         return null;
     }

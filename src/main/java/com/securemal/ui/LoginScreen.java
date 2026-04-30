@@ -4,7 +4,7 @@ import com.securemal.auth.AuthService;
 import com.securemal.config.Config;
 import com.securemal.models.User;
 import com.securemal.state.AppState;
-import com.securemal.ui.components.Icons;
+
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -13,11 +13,11 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 public class LoginScreen extends JPanel {
-    private MainFrame mainFrame;
-    private JTextField txtUsername;
-    private JPasswordField txtPassword;
-    private JLabel lblStatus;
-    private JButton btnLogin;
+    private final MainFrame mainFrame;
+    private final JTextField txtUsername;
+    private final JPasswordField txtPassword;
+    private final JLabel lblStatus;
+    private final JButton btnLogin;
 
     public LoginScreen(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
@@ -94,7 +94,7 @@ public class LoginScreen extends JPanel {
         add(card);
     }
     
-    private JPanel createFieldRow(String labelText, JComponent field) {
+    private JPanel createFieldRow(final String labelText, JComponent field) {
         JPanel row = new JPanel();
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
         row.setOpaque(false);
@@ -115,7 +115,7 @@ public class LoginScreen extends JPanel {
         return row;
     }
 
-    private JTextField createStyledTextField(String placeholder) {
+    private JTextField createStyledTextField(@SuppressWarnings("unused") final String placeholder) {
         JTextField field = new JTextField();
         field.setMaximumSize(new Dimension(300, 40));
         field.setPreferredSize(new Dimension(300, 40));
@@ -146,8 +146,8 @@ public class LoginScreen extends JPanel {
     }
     
     private void performLogin() {
-        String username = txtUsername.getText();
-        String password = new String(txtPassword.getPassword());
+        final String username = txtUsername.getText();
+        final String password = new String(txtPassword.getPassword());
         
         if (username.isEmpty() || password.isEmpty()) {
             lblStatus.setText("Please enter both fields.");
@@ -170,7 +170,7 @@ public class LoginScreen extends JPanel {
             protected void done() {
                 btnLogin.setEnabled(true);
                 try {
-                    User user = get();
+                    final User user = get();
                     if (user != null) {
                         lblStatus.setText(" ");
                         AppState.getInstance().setCurrentUser(user);
@@ -183,7 +183,7 @@ public class LoginScreen extends JPanel {
                 } catch (Exception ex) {
                     lblStatus.setForeground(Color.RED);
                     lblStatus.setText("An error occurred during login.");
-                    ex.printStackTrace();
+                    System.err.println("Login error: " + ex.getMessage());
                 }
             }
         };

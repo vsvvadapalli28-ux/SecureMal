@@ -11,7 +11,7 @@ import java.sql.SQLException;
 public class DBConnection {
 
     private static DBConnection instance;
-    private Connection connection;
+    private final Connection connection;
 
     private DBConnection() {
         try {

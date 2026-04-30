@@ -1,11 +1,13 @@
 package com.securemal.utils;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 public class JsonUtil {
     private static final Gson gson = new Gson();
@@ -25,8 +27,13 @@ public class JsonUtil {
         try {
             Type listType = new TypeToken<List<Map<String, String>>>() {}.getType();
             List<Map<String, String>> result = gson.fromJson(timelineJson, listType);
-            return result != null ? result : Collections.emptyList();
-        } catch (Exception e) {
+            if (result == null) {
+                return Collections.emptyList();
+            }
+            return result.stream()
+                .distinct()
+                .collect(Collectors.toList());
+        } catch (RuntimeException e) {
             return Collections.emptyList();
         }
     }

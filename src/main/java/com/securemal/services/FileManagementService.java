@@ -1,6 +1,7 @@
 package com.securemal.services;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,7 +17,6 @@ import java.util.UUID;
 
 import com.securemal.config.Config;
 import com.securemal.db.DBConnection;
-import com.securemal.db.DBHelper;
 import com.securemal.models.UploadedFile;
 
 public class FileManagementService {
@@ -26,8 +26,6 @@ public class FileManagementService {
         String storedFilename = UUID.randomUUID().toString() + "_" + originalName;
         Path targetPath = Paths.get(Config.UPLOADS_DIR, storedFilename).toAbsolutePath();
 
-        Connection conn = null;
-
         try {
             // Copy file physically
             Files.copy(selectedFile.toPath(), targetPath, StandardCopyOption.REPLACE_EXISTING);
@@ -35,9 +33,8 @@ public class FileManagementService {
             long fileSize = selectedFile.length();
             String filePathStr = targetPath.toString(); // absolute path
 
-            conn = DBConnection.getInstance().getConnection();
-            String sql = "INSERT INTO files (user_id, original_filename, stored_filename, file_path, file_size) VALUES (?, ?, ?, ?, ?)";
-            try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            try (Connection conn = DBConnection.getInstance().getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement("INSERT INTO files (user_id, original_filename, stored_filename, file_path, file_size) VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS)) {
                 pstmt.setInt(1, userId);
                 pstmt.setString(2, originalName);
                 pstmt.setString(3, storedFilename);
@@ -57,22 +54,21 @@ public class FileManagementService {
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (IOException | java.sql.SQLException e) {
+            System.err.println("Upload failed: " + e.getMessage());
             // Optional: delete copied file if db insert fails
             try {
                 Files.deleteIfExists(targetPath);
-            } catch (Exception ignored) {}
+            } catch (IOException ignored) {
+                // no-op
+            }
         }
         return null;
     }
 
     public List<UploadedFile> getFilesForUser(int userId) {
         List<UploadedFile> list = new ArrayList<>();
-        Connection conn = null;
-
-        try {
-            conn = DBConnection.getInstance().getConnection();
+        try (Connection conn = DBConnection.getInstance().getConnection()) {
             // Using a LEFT JOIN to check if a report exists for the file to determine Status & Risk.
             String sql = "SELECT f.*, r.id AS report_id, r.risk_label " +
                          "FROM files f " +
@@ -106,8 +102,8 @@ public class FileManagementService {
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (java.sql.SQLException e) {
+            System.err.println("Failed to fetch user files: " + e.getMessage());
         }
         return list;
     }
@@ -120,9 +116,7 @@ public class FileManagementService {
      * @return true if deleted successfully, false otherwise
      */
     public boolean deleteFile(int fileId) {
-        Connection conn = null;
-        try {
-            conn = DBConnection.getInstance().getConnection();
+        try (Connection conn = DBConnection.getInstance().getConnection()) {
             // Step 1: Get the stored filename before deleting
             String filePath = null;
             try (PreparedStatement getPath = conn.prepareStatement(
@@ -148,6 +142,9 @@ public class FileManagementService {
                     "DELETE FROM files WHERE id = ?")) {
                 deleteFile.setInt(1, fileId);
                 rows = deleteFile.executeUpdate();
+                if (rows <= 0) {
+                    return false;
+                }
             }
 
             // Step 4: Delete physical file from disk
@@ -159,7 +156,7 @@ public class FileManagementService {
             }
 
             return rows > 0;
-        } catch (Exception e) {
+        } catch (java.sql.SQLException e) {
             System.err.println("Error deleting file: " + e.getMessage());
             return false;
         }

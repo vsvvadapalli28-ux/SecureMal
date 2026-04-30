@@ -50,16 +50,12 @@ public class MainFrame extends JFrame {
     }
     
     private ReportViewerScreen reportScreen;
-    private JPanel cardPanel;
 
     public void showReport(int fileId) {
         System.out.println("DEBUG: showReport called with fileId: " + fileId);
-        // FIX D: Remove old report screen if exists
-        for (java.awt.Component c : mainPanel.getComponents()) {
-            if ("REPORT".equals(c.getName())) {
-                mainPanel.remove(c);
-                break;
-            }
+        if (reportScreen != null) {
+            reportScreen.clearMainContainer();
+            mainPanel.remove(reportScreen);
         }
 
         reportScreen = new ReportViewerScreen(this, fileId);
@@ -67,7 +63,8 @@ public class MainFrame extends JFrame {
         mainPanel.add(reportScreen, "REPORT");
         cardLayout.show(mainPanel, "REPORT");
 
-        // FIX D: Force full layout pass to give the new screen its actual pixel size
+        reportScreen.revalidate();
+        reportScreen.repaint();
         mainPanel.revalidate();
         mainPanel.repaint();
         getContentPane().revalidate();

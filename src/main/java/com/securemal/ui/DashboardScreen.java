@@ -12,7 +12,6 @@ import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -21,13 +20,13 @@ import java.io.File;
 import java.util.List;
 
 public class DashboardScreen extends JPanel {
-    private MainFrame mainFrame;
-    private JLabel lblWelcome;
-    private JTable fileTable;
-    private DefaultTableModel tableModel;
-    private FileManagementService fileService;
+    private final MainFrame mainFrame;
+    private final JLabel lblWelcome;
+    private final JTable fileTable;
+    private final DefaultTableModel tableModel;
+    private final FileManagementService fileService;
     private List<UploadedFile> currentFiles;
-    private JTextField txtSelectedFile;
+    private final JTextField txtSelectedFile;
 
     public DashboardScreen(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
@@ -180,12 +179,10 @@ public class DashboardScreen extends JPanel {
                 JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row,
                         column);
                 String status = value != null ? value.toString() : "Pending";
-                if ("Pending".equals(status)) {
-                    label.setText("Pending");
-                } else if ("Analysed".equals(status)) {
-                    label.setText("Analysed");
-                } else {
-                    label.setText(status);
+                switch (status) {
+                    case "Pending" -> label.setText("Pending");
+                    case "Analysed" -> label.setText("Analysed");
+                    default -> label.setText(status);
                 }
                 return label;
             }
@@ -210,6 +207,7 @@ public class DashboardScreen extends JPanel {
                     if (row != -1 && currentFiles != null && currentFiles.size() > row) {
                         UploadedFile uf = currentFiles.get(row);
                         if ("Analysed".equals(uf.getStatus())) {
+                            System.out.println("=== Opening report for fileId: " + uf.getId());
                             mainFrame.showReport(uf.getId());
                         }
                     }
@@ -282,8 +280,8 @@ public class DashboardScreen extends JPanel {
                     }
                     fileTable.revalidate();
                     fileTable.repaint();
-                } catch (Exception e) {
-                    e.printStackTrace();
+                } catch (InterruptedException | java.util.concurrent.ExecutionException e) {
+                    System.err.println("Failed to refresh file list: " + e.getMessage());
                     tableModel.setRowCount(0);
                     fileTable.revalidate();
                     fileTable.repaint();
@@ -356,8 +354,8 @@ public class DashboardScreen extends JPanel {
                             JOptionPane.showMessageDialog(DashboardScreen.this,
                                     "Error uploading file.", "Error", JOptionPane.ERROR_MESSAGE);
                         }
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                    } catch (InterruptedException | java.util.concurrent.ExecutionException e) {
+                        System.err.println("Failed to complete upload worker: " + e.getMessage());
                     }
                 }
             };
@@ -368,8 +366,8 @@ public class DashboardScreen extends JPanel {
 
     // Custom Button Renderer — always paints colors explicitly on every call
     class ButtonRenderer extends JPanel implements TableCellRenderer {
-        private JButton btnStatic;
-        private JButton btnDynamic;
+        private final JButton btnStatic;
+        private final JButton btnDynamic;
 
         public ButtonRenderer() {
             setLayout(new FlowLayout(FlowLayout.CENTER, 4, 3));
@@ -429,9 +427,8 @@ public class DashboardScreen extends JPanel {
     // Custom Button Editor
     class ButtonEditor extends DefaultCellEditor {
         protected JPanel panel;
-        protected JButton btnStatic;
-        protected JButton btnDynamic;
-        private boolean isPushed;
+        protected final JButton btnStatic;
+        protected final JButton btnDynamic;
         private int currentRow;
 
         public ButtonEditor(JCheckBox checkBox) {
@@ -450,6 +447,7 @@ public class DashboardScreen extends JPanel {
                 if (currentFiles != null && currentFiles.size() > currentRow) {
                     UploadedFile uf = currentFiles.get(currentRow);
                     if ("Analysed".equals(uf.getStatus())) {
+                        System.out.println("=== Opening report for fileId: " + uf.getId());
                         mainFrame.showReport(uf.getId());
                     }
                 }
@@ -493,20 +491,16 @@ public class DashboardScreen extends JPanel {
             }
             btnDynamic.setBackground(Config.COLOR_BUTTON);
             btnDynamic.setForeground(Color.WHITE);
-
-            isPushed = true;
             return panel;
         }
 
         @Override
         public Object getCellEditorValue() {
-            isPushed = false;
             return "Actions";
         }
 
         @Override
         public boolean stopCellEditing() {
-            isPushed = false;
             return super.stopCellEditing();
         }
     }
@@ -539,7 +533,6 @@ public class DashboardScreen extends JPanel {
     private class DeleteButtonEditor extends DefaultCellEditor {
         protected JButton button;
         private int currentRow;
-        private boolean isPushed;
 
         public DeleteButtonEditor(JCheckBox checkBox) {
             super(checkBox);
@@ -595,7 +588,7 @@ public class DashboardScreen extends JPanel {
                                             JOptionPane.ERROR_MESSAGE
                                         );
                                     }
-                                } catch (Exception ex) {
+                                } catch (InterruptedException | java.util.concurrent.ExecutionException ex) {
                                     System.err.println("Delete error: " + ex.getMessage());
                                 }
                             }
@@ -609,7 +602,6 @@ public class DashboardScreen extends JPanel {
         public Component getTableCellEditorComponent(JTable table, Object value,
                 boolean isSelected, int row, int column) {
             currentRow = row;
-            isPushed = true;
             return button;
         }
 
@@ -620,13 +612,11 @@ public class DashboardScreen extends JPanel {
 
         @Override
         public Object getCellEditorValue() {
-            isPushed = false;
             return "Delete";
         }
 
         @Override
         public boolean stopCellEditing() {
-            isPushed = false;
             return super.stopCellEditing();
         }
     }

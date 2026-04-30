@@ -1,13 +1,13 @@
 package com.securemal;
 
-import com.securemal.config.Config;
+import java.io.File;
+import java.io.FileWriter;
+
+import com.securemal.auth.AuthService;
 import com.securemal.controllers.AnalysisController;
 import com.securemal.models.AnalysisReport;
 import com.securemal.models.UploadedFile;
 import com.securemal.services.FileManagementService;
-import com.securemal.auth.AuthService;
-import java.io.File;
-import java.io.FileWriter;
 
 public class TestMain {
     public static void main(String[] args) throws Exception {

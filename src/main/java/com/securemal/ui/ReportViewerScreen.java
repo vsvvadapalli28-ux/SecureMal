@@ -8,15 +8,10 @@ import com.securemal.ui.components.Icons;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.text.Style;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyledDocument;
 import java.awt.*;
-import java.awt.geom.RoundRectangle2D;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 public class ReportViewerScreen extends JPanel {
     private final MainFrame mainFrame;
@@ -97,11 +92,13 @@ public class ReportViewerScreen extends JPanel {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     showError("Report loading was interrupted.");
-                } catch (ExecutionException e) {
-                    // Print the REAL cause to the console so we can see it
+                } catch (java.util.concurrent.ExecutionException e) {
+                    Throwable cause = e.getCause();
                     System.err.println("=== ReportViewerScreen load error ===");
-                    e.getCause().printStackTrace();
-                    showError("Failed to load report: " + e.getCause().getMessage());
+                    if (cause != null) {
+                        System.err.println(cause.getClass().getName() + ": " + cause.getMessage());
+                    }
+                    showError("Failed to load report: " + (cause != null ? cause.getMessage() : e.getMessage()));
                 }
             }
         };
@@ -160,6 +157,14 @@ public class ReportViewerScreen extends JPanel {
         repaint();
     }
 
+    public void clearMainContainer() {
+        if (mainContainer != null) {
+            mainContainer.removeAll();
+            mainContainer.revalidate();
+            mainContainer.repaint();
+        }
+    }
+
     private void buildUI(AnalysisReport report) {
         removeAll();
         setLayout(new BorderLayout());
@@ -168,37 +173,50 @@ public class ReportViewerScreen extends JPanel {
 
         System.out.println("DEBUG: buildUI called with report: " + report.getFileType());
         
-        // FIX B: mainContainer with overridden getPreferredSize for BoxLayout inside JScrollPane
-        mainContainer = new JPanel() {
-            @Override
-            public Dimension getPreferredSize() {
-                int parentWidth = (getParent() != null && getParent().getWidth() > 0)
-                    ? getParent().getWidth() : 900;
-                Dimension natural = super.getPreferredSize();
-                return new Dimension(
-                    Math.max(parentWidth, natural.width),
-                    natural.height
-                );
-            }
-        };
-        mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
-        mainContainer.setBackground(new Color(13, 13, 26));
-        mainContainer.setOpaque(true);
-        mainContainer.setBorder(BorderFactory.createEmptyBorder(20, 15, 40, 15));
-        mainContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
+        if (mainContainer == null) {
+            mainContainer = new JPanel() {
+                @Override
+                public Dimension getPreferredSize() {
+                    int parentWidth = (getParent() != null && getParent().getWidth() > 0)
+                        ? getParent().getWidth() : 900;
+                    Dimension natural = super.getPreferredSize();
+                    return new Dimension(
+                        Math.max(parentWidth, natural.width),
+                        natural.height
+                    );
+                }
+            };
+            mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
+            mainContainer.setBackground(new Color(13, 13, 26));
+            mainContainer.setOpaque(true);
+            mainContainer.setBorder(BorderFactory.createEmptyBorder(20, 15, 40, 15));
+            mainContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
+            mainContainer.setMinimumSize(new Dimension(0, 0));
+            mainContainer.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        } else {
+            mainContainer.removeAll();
+            mainContainer.revalidate();
+            mainContainer.repaint();
+        }
 
         buildHeader(report);
         System.out.println("DEBUG: after buildHeader, count: " + mainContainer.getComponentCount());
 
         // Add notice if dynamic analysis is missing
-        if (report.getAnalysisType() == null || !report.getAnalysisType().equals("Dynamic Analysis")) {
-            JPanel noticePanel = new JPanel();
+        if (report.getAnalysisType() == null || !report.getAnalysisType().toLowerCase().contains("dynamic")) {
+            JPanel noticePanel = new JPanel(new BorderLayout());
             noticePanel.setBackground(new Color(255, 193, 7)); // yellow
             noticePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-            JLabel noticeLabel = new JLabel("Dynamic analysis unavailable — VirtualBox VM not configured. Showing static analysis results only.");
+            noticePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            noticePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, noticePanel.getPreferredSize().height));
+
+            JLabel noticeLabel = new JLabel("<html><body style='width:100%; font-family:Segoe UI; font-size:12px; color:#000000;'>"
+                + "Dynamic analysis unavailable — VirtualBox VM not configured or not yet run. Showing static analysis results only."
+                + "</body></html>");
             noticeLabel.setForeground(Color.BLACK);
             noticeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-            noticePanel.add(noticeLabel);
+            noticeLabel.setOpaque(false);
+            noticePanel.add(noticeLabel, BorderLayout.CENTER);
             mainContainer.add(noticePanel);
             mainContainer.add(Box.createRigidArea(new Dimension(0, 10)));
         }
@@ -228,9 +246,7 @@ public class ReportViewerScreen extends JPanel {
         
         // CRITICAL: Set viewport LAST, after all content is in mainContainer
         scrollPane.setViewportView(mainContainer);
-
-        System.out.println("DEBUG: mainContainer component count: " + mainContainer.getComponentCount());
-        System.out.println("DEBUG: scrollPane viewport: " + scrollPane.getViewport());
+        scrollPane.getViewport().setViewPosition(new Point(0, 0));
 
         // FIX A: Add scrollPane using BorderLayout.CENTER so it fills available space
         add(scrollPane, BorderLayout.CENTER);
@@ -280,11 +296,16 @@ public class ReportViewerScreen extends JPanel {
         header.add(backBtn, BorderLayout.WEST);
 
         JLabel title = new JLabel("<html><body style='width:260px;'>"
-            + report.getFileType() + "</body></html>", SwingConstants.CENTER);
+            + report.getFileType() + "</body></html>");
         title.setToolTipText(report.getFileType());
         title.setFont(new Font("Segoe UI", Font.BOLD, 18));
         title.setForeground(Color.WHITE);
-        header.add(title, BorderLayout.CENTER);
+        title.setHorizontalAlignment(SwingConstants.LEFT);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JPanel titlePanel = new JPanel(new BorderLayout());
+        titlePanel.setOpaque(false);
+        titlePanel.add(title, BorderLayout.WEST);
+        header.add(titlePanel, BorderLayout.CENTER);
 
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         rightPanel.setOpaque(false);
@@ -353,7 +374,7 @@ public class ReportViewerScreen extends JPanel {
                     try {
                         get();
                         JOptionPane.showMessageDialog(ReportViewerScreen.this, "PDF saved to:\n" + path, "Success", JOptionPane.INFORMATION_MESSAGE);
-                    } catch (Exception e) {
+                    } catch (InterruptedException | java.util.concurrent.ExecutionException e) {
                         JOptionPane.showMessageDialog(ReportViewerScreen.this, "Failed to export PDF: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
@@ -413,30 +434,39 @@ public class ReportViewerScreen extends JPanel {
         // FIX E: Component alignment (summary grows naturally, no max size)
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        JPanel summaryBody = new JPanel();
+        summaryBody.setLayout(new BoxLayout(summaryBody, BoxLayout.Y_AXIS));
+        summaryBody.setOpaque(false);
+        summaryBody.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         JLabel title = new JLabel("What did the analysis find?");
         title.setForeground(Color.WHITE);
         title.setFont(new Font("Segoe UI", Font.BOLD, 14));
         title.setBorder(new EmptyBorder(0, 0, 10, 0));
-        panel.add(title, BorderLayout.NORTH);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        summaryBody.add(title);
 
         String summary = report.getPlainSummary();
         if (summary == null || summary.isBlank()) {
             summary = "Analysis complete. No detailed summary available.";
         }
-        summary = summary.replaceAll("\\*\\*([^\\*]+)\\*\\*", "<b>$1</b>");
+        summary = summary.replaceAll("\\*\\*([^\\*]+)\\*\\*", "$1");
 
         JTextArea summaryArea = new JTextArea(summary);
         summaryArea.setLineWrap(true);
         summaryArea.setWrapStyleWord(true);
         summaryArea.setEditable(false);
         summaryArea.setOpaque(false);
+        summaryArea.setFocusable(false);
         summaryArea.setForeground(Color.WHITE);
         summaryArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         summaryArea.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
         summaryArea.setAlignmentX(Component.LEFT_ALIGNMENT);
         summaryArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        summaryArea.setPreferredSize(new Dimension(900, summaryArea.getPreferredSize().height));
 
-        panel.add(summaryArea, BorderLayout.CENTER);
+        summaryBody.add(summaryArea);
+        panel.add(summaryBody, BorderLayout.CENTER);
         mainContainer.add(panel);
     }
 
@@ -478,19 +508,18 @@ public class ReportViewerScreen extends JPanel {
                 Color cardBg;
                 Color borderColor;
                 switch (severity.toLowerCase()) {
-                    case "high":
-                    case "critical":
-                        cardBg      = new Color(45, 0, 0);
+                    case "high", "critical" -> {
+                        cardBg = new Color(45, 0, 0);
                         borderColor = new Color(233, 69, 96);
-                        break;
-                    case "medium":
-                        cardBg      = new Color(45, 34, 0);
+                    }
+                    case "medium" -> {
+                        cardBg = new Color(45, 34, 0);
                         borderColor = new Color(243, 156, 18);
-                        break;
-                    default:
-                        cardBg      = new Color(0, 45, 0);
+                    }
+                    default -> {
+                        cardBg = new Color(0, 45, 0);
                         borderColor = new Color(0, 184, 148);
-                        break;
+                    }
                 }
 
                 JPanel card = new JPanel(new BorderLayout(0, 6));

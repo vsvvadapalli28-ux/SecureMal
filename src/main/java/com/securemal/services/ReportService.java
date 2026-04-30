@@ -21,8 +21,8 @@ import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.securemal.db.DBConnection;
-import com.securemal.db.DBHelper;
 import com.securemal.models.AnalysisReport;
 
 public class ReportService {
@@ -43,11 +43,7 @@ public class ReportService {
     }
 
     public AnalysisReport saveReport(int fileId, String jsonResult) {
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-
-        try {
+        try (Connection conn = DBConnection.getInstance().getConnection()) {
             JsonObject root = JsonParser.parseString(jsonResult).getAsJsonObject();
 
             String md5 = root.has("md5_hash") && !root.get("md5_hash").isJsonNull() ? root.get("md5_hash").getAsString()
@@ -79,114 +75,92 @@ public class ReportService {
                     ? root.get("analysis_type").getAsString()
                     : "static";
 
-            conn = DBConnection.getInstance().getConnection();
             String sql = "INSERT INTO reports (file_id, md5_hash, sha256_hash, file_type, risk_score, risk_label, plain_summary, timeline, suspicious_strings, pe_info, analysis_type, raw_result) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-            pstmt.setInt(1, fileId);
-            pstmt.setString(2, md5);
-            pstmt.setString(3, sha256);
-            pstmt.setString(4, fileType);
-            pstmt.setInt(5, riskScore);
-            pstmt.setString(6, riskLabel);
-            pstmt.setString(7, plainSummary);
-            pstmt.setString(8, timeline);
-            pstmt.setString(9, suspiciousStrings);
-            pstmt.setString(10, peInfo);
-            pstmt.setString(11, analysisType);
-            pstmt.setString(12, jsonResult);
+            try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                pstmt.setInt(1, fileId);
+                pstmt.setString(2, md5);
+                pstmt.setString(3, sha256);
+                pstmt.setString(4, fileType);
+                pstmt.setInt(5, riskScore);
+                pstmt.setString(6, riskLabel);
+                pstmt.setString(7, plainSummary);
+                pstmt.setString(8, timeline);
+                pstmt.setString(9, suspiciousStrings);
+                pstmt.setString(10, peInfo);
+                pstmt.setString(11, analysisType);
+                pstmt.setString(12, jsonResult);
 
-            int rows = pstmt.executeUpdate();
-            if (rows == 0) {
-                throw new RuntimeException("Failed to insert report for file ID " + fileId);
-            }
-            rs = pstmt.getGeneratedKeys();
-            if (rs != null && rs.next()) {
-                int newId = rs.getInt(1);
-                AnalysisReport report = getReportById(newId);
-                if (report == null) {
-                    throw new RuntimeException("Inserted report could not be loaded for report ID " + newId);
+                int rows = pstmt.executeUpdate();
+                if (rows == 0) {
+                    throw new RuntimeException("Failed to insert report for file ID " + fileId);
                 }
-                return report;
+                try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                    if (rs != null && rs.next()) {
+                        int newId = rs.getInt(1);
+                        AnalysisReport report = getReportById(newId);
+                        if (report == null) {
+                            throw new RuntimeException("Inserted report could not be loaded for report ID " + newId);
+                        }
+                        return report;
+                    }
+                    throw new RuntimeException("Failed to obtain generated report ID for file ID " + fileId);
+                }
             }
-            throw new RuntimeException("Failed to obtain generated report ID for file ID " + fileId);
-        } catch (Exception e) {
+        } catch (java.sql.SQLException e) {
             throw new RuntimeException("Failed to save analysis report for file ID " + fileId, e);
-        } finally {
-            DBHelper.closeQuietly(rs);
-            DBHelper.closeQuietly(pstmt);
         }
     }
 
     public AnalysisReport getReport(int fileId) {
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-
-        try {
-            conn = DBConnection.getInstance().getConnection();
+        try (Connection conn = DBConnection.getInstance().getConnection()) {
             String sql = "SELECT * FROM reports WHERE file_id = ? ORDER BY created_at DESC LIMIT 1";
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, fileId);
-            rs = pstmt.executeQuery();
-
-            if (rs.next()) {
-                return mapRowToReport(rs);
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, fileId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return mapRowToReport(rs);
+                    }
+                }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            DBHelper.closeQuietly(rs);
-            DBHelper.closeQuietly(pstmt);
+        } catch (java.sql.SQLException e) {
+            System.err.println("Failed to load latest report for file ID " + fileId + ": " + e.getMessage());
         }
         return null;
     }
 
     public AnalysisReport getReportById(int reportId) {
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-
-        try {
-            conn = DBConnection.getInstance().getConnection();
+        try (Connection conn = DBConnection.getInstance().getConnection()) {
             String sql = "SELECT * FROM reports WHERE id = ?";
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, reportId);
-            rs = pstmt.executeQuery();
-
-            if (rs.next()) {
-                return mapRowToReport(rs);
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, reportId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return mapRowToReport(rs);
+                    }
+                }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            DBHelper.closeQuietly(rs);
-            DBHelper.closeQuietly(pstmt);
+        } catch (java.sql.SQLException e) {
+            System.err.println("Failed to load report by ID " + reportId + ": " + e.getMessage());
         }
         return null;
     }
 
     public boolean hasReport(int fileId) {
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-
-        try {
-            conn = DBConnection.getInstance().getConnection();
+        try (Connection conn = DBConnection.getInstance().getConnection()) {
             String sql = "SELECT id FROM reports WHERE file_id = ? LIMIT 1";
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, fileId);
-            rs = pstmt.executeQuery();
-            return rs.next();
-        } catch (Exception e) {
-            e.printStackTrace();
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, fileId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    return rs.next();
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            System.err.println("Failed to determine if report exists for file ID " + fileId + ": " + e.getMessage());
             return false;
-        } finally {
-            DBHelper.closeQuietly(rs);
-            DBHelper.closeQuietly(pstmt);
         }
     }
 
-    private AnalysisReport mapRowToReport(ResultSet rs) throws Exception {
+    private AnalysisReport mapRowToReport(ResultSet rs) throws java.sql.SQLException {
         AnalysisReport report = new AnalysisReport();
         report.setId(rs.getInt("id"));
         report.setFileId(rs.getInt("file_id"));
@@ -321,18 +295,16 @@ public class ReportService {
                         contentStream.endText();
                         currentY -= 15;
 
-                        currentY = drawWrappedText(document, contentStream, page, msg, fontNormal, 11, MARGIN + 20,
-                                currentY, START_Y);
+                        currentY = drawWrappedText(contentStream, msg, fontNormal, 11, MARGIN + 20, currentY);
 
                         contentStream.setNonStrokingColor(0.5f, 0.5f, 0.5f);
-                        currentY = drawWrappedText(document, contentStream, page, meaning, fontNormal, 10, MARGIN + 20,
-                                currentY, START_Y);
+                        currentY = drawWrappedText(contentStream, meaning, fontNormal, 10, MARGIN + 20, currentY);
                         float[] blackRgb2 = toPdfColor(Color.BLACK);
                         contentStream.setNonStrokingColor(blackRgb2[0], blackRgb2[1], blackRgb2[2]);
 
                         currentY -= 6;
                     }
-                } catch (Exception e) {
+                } catch (JsonSyntaxException | IllegalStateException e) {
                     // ignore parsing errors in timeline
                 }
 
@@ -382,6 +354,7 @@ public class ReportService {
         return generated.toString();
     }
 
+    @SuppressWarnings("unused")
     private float drawWrappedText(PDDocument doc, PDPageContentStream contentStream, PDPage page, String text,
             PDType1Font font, int fontSize, float startX, float startY, float topY) throws IOException {
         float leading = 1.5f * fontSize;
@@ -433,6 +406,60 @@ public class ReportService {
         return startY;
     }
 
+    // Overload for 6-parameter calls
+    @SuppressWarnings("unused")
+    private float drawWrappedText(PDPageContentStream contentStream, String text,
+            PDType1Font font, int fontSize, float startX, float startY) throws IOException {
+        float leading = 1.5f * fontSize;
+        float width = PDRectangle.A4.getWidth() - 50 - startX; // margin right = 50
+        List<String> lines = new ArrayList<>();
+        int lastSpace = -1;
+
+        while (text.length() > 0) {
+            int spaceIndex = text.indexOf(' ', lastSpace + 1);
+            if (spaceIndex < 0)
+                spaceIndex = text.length();
+            String subString = text.substring(0, spaceIndex);
+            float size = font.getStringWidth(subString) / 1000 * fontSize;
+            if (size > width) {
+                if (lastSpace < 0)
+                    lastSpace = spaceIndex;
+                subString = text.substring(0, lastSpace);
+                lines.add(subString);
+                text = text.substring(lastSpace).trim();
+                lastSpace = -1;
+            } else if (spaceIndex == text.length()) {
+                lines.add(text);
+                text = "";
+            } else {
+                lastSpace = spaceIndex;
+            }
+        }
+
+        contentStream.beginText();
+        contentStream.setFont(font, fontSize);
+        contentStream.setLeading(leading);
+        contentStream.newLineAtOffset(startX, startY);
+        for (String line : lines) {
+            // Very rudimentary encoding sanitization to avoid PDFBox crashes on unmapped
+            // chars
+            StringBuilder sanitized = new StringBuilder();
+            for (int i = 0; i < line.length(); i++) {
+                if (font.hasGlyph(line.charAt(i))) {
+                    sanitized.append(line.charAt(i));
+                } else {
+                    sanitized.append("?");
+                }
+            }
+            contentStream.showText(sanitized.toString());
+            contentStream.newLine();
+            startY -= leading;
+        }
+        contentStream.endText();
+        return startY;
+    }
+
+    @SuppressWarnings("unused")
     private float checkPageBreak(PDDocument doc, PDPageContentStream currentStream, PDPage page, float currentY,
             float margin, float startY, PDType1Font font) throws IOException {
         if (currentY < 60) {

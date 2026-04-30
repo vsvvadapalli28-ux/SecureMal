@@ -1,7 +1,8 @@
+import os
 import subprocess
 import sys
 
-VBOXMANAGE = r"C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
+VBOXMANAGE = os.environ.get("VBOXMANAGE", r"C:\Program Files\Oracle\VirtualBox\VBoxManage.exe")
 
 def run_vbox(args):
     cmd = [VBOXMANAGE] + args
