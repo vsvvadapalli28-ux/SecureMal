@@ -1,5 +1,6 @@
 package com.securemal.ui;
 
+import com.securemal.config.AppConfig;
 import com.securemal.config.Config;
 import com.securemal.controllers.AnalysisController;
 import com.securemal.models.UploadedFile;
@@ -110,6 +111,20 @@ public class DashboardScreen extends JPanel {
         btnBrowse.addActionListener(e -> performUpload());
         uploadPanel.add(btnBrowse, gbc);
 
+        gbc.gridx = 3; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        JButton btnVmSetup = new JButton("⚙ VM Setup");
+        btnVmSetup.setBackground(new Color(40, 60, 100));
+        btnVmSetup.setForeground(Color.WHITE);
+        btnVmSetup.setOpaque(true);
+        btnVmSetup.setBorderPainted(false);
+        btnVmSetup.setFocusPainted(false);
+        btnVmSetup.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        btnVmSetup.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnVmSetup.setToolTipText("Configure the VirtualBox VM used for dynamic analysis");
+        btnVmSetup.addActionListener(e ->
+            VirtualBoxSetupDialog.show((java.awt.Frame) SwingUtilities.getWindowAncestor(this)));
+        uploadPanel.add(btnVmSetup, gbc);
+
         centerPanel.add(uploadPanel);
         centerPanel.add(Box.createRigidArea(new Dimension(0, 20)));
 
@@ -207,7 +222,6 @@ public class DashboardScreen extends JPanel {
                     if (row != -1 && currentFiles != null && currentFiles.size() > row) {
                         UploadedFile uf = currentFiles.get(row);
                         if ("Analysed".equals(uf.getStatus())) {
-                            System.out.println("=== Opening report for fileId: " + uf.getId());
                             mainFrame.showReport(uf.getId());
                         }
                     }
@@ -447,7 +461,6 @@ public class DashboardScreen extends JPanel {
                 if (currentFiles != null && currentFiles.size() > currentRow) {
                     UploadedFile uf = currentFiles.get(currentRow);
                     if ("Analysed".equals(uf.getStatus())) {
-                        System.out.println("=== Opening report for fileId: " + uf.getId());
                         mainFrame.showReport(uf.getId());
                     }
                 }
@@ -464,6 +477,14 @@ public class DashboardScreen extends JPanel {
                 fireEditingStopped();
                 if (currentFiles != null && currentFiles.size() > currentRow) {
                     UploadedFile uf = currentFiles.get(currentRow);
+                    // If VBox not installed, show install guide
+                    if (!AppConfig.isVirtualBoxPathValid()) {
+                        VirtualBoxSetupDialog.show(
+                            (java.awt.Frame) SwingUtilities.getWindowAncestor(DashboardScreen.this));
+                        return;
+                    }
+                    // Run analysis — if VM is not registered, the error handler in
+                    // AnalysisController will show a dialog with a helpful message.
                     AnalysisController.runDynamicAnalysis(uf.getId(), DashboardScreen.this);
                 }
             });

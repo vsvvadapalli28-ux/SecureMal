@@ -9,16 +9,29 @@ import java.util.Properties;
 public final class AppConfig {
     private static final String CONFIG_FILENAME = "securemal.properties";
     private static final String VBOX_PATH_PROPERTY = "virtualbox.path";
+    private static final String VM_NAME_PROPERTY    = "vm.name";
+    private static final String VM_SNAPSHOT_PROPERTY = "vm.snapshot";
+
+    /** Default VM name used when no value is persisted. */
+    public static final String DEFAULT_VM_NAME       = "SecureMal-Clean";
+    /** Default snapshot name used when no value is persisted. */
+    public static final String DEFAULT_SNAPSHOT_NAME = "Clean";
+
     private static final Properties properties = new Properties();
-    private static final File CONFIG_FILE = new File(System.getProperty("user.dir"), CONFIG_FILENAME);
+    private static final File CONFIG_FILE =
+            new File(System.getProperty("user.dir"), CONFIG_FILENAME);
 
     static {
         load();
     }
 
     private AppConfig() {
-        // Utility class
+        // Utility class — no instances
     }
+
+    // ──────────────────────────────────────────────────────────────
+    // Internal helpers
+    // ──────────────────────────────────────────────────────────────
 
     private static void load() {
         if (!CONFIG_FILE.exists()) {
@@ -38,6 +51,10 @@ public final class AppConfig {
             System.err.println("Failed to save application configuration: " + e.getMessage());
         }
     }
+
+    // ──────────────────────────────────────────────────────────────
+    // VirtualBox executable path
+    // ──────────────────────────────────────────────────────────────
 
     public static String getVirtualBoxPath() {
         String envPath = System.getenv("VBOXMANAGE");
@@ -63,6 +80,60 @@ public final class AppConfig {
         }
         return "";
     }
+
+    public static boolean isVirtualBoxPathValid() {
+        String path = getVirtualBoxPath();
+        return path != null && !path.isBlank() && new File(path).isFile();
+    }
+
+    public static void setVirtualBoxPath(String path) {
+        properties.setProperty(VBOX_PATH_PROPERTY, path == null ? "" : path.trim());
+        save();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // VM name (which registered VirtualBox VM to use)
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the configured VM name, falling back to {@link #DEFAULT_VM_NAME}
+     * if nothing is saved in properties.
+     */
+    public static String getVmName() {
+        load();
+        String v = properties.getProperty(VM_NAME_PROPERTY, "").trim();
+        return v.isBlank() ? DEFAULT_VM_NAME : v;
+    }
+
+    /** Persists the VM name to {@code securemal.properties}. */
+    public static void setVmName(String name) {
+        properties.setProperty(VM_NAME_PROPERTY, name == null ? "" : name.trim());
+        save();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // VM snapshot name
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the configured snapshot name, falling back to
+     * {@link #DEFAULT_SNAPSHOT_NAME} if nothing is saved.
+     */
+    public static String getSnapshotName() {
+        load();
+        String v = properties.getProperty(VM_SNAPSHOT_PROPERTY, "").trim();
+        return v.isBlank() ? DEFAULT_SNAPSHOT_NAME : v;
+    }
+
+    /** Persists the snapshot name to {@code securemal.properties}. */
+    public static void setSnapshotName(String name) {
+        properties.setProperty(VM_SNAPSHOT_PROPERTY, name == null ? "" : name.trim());
+        save();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Path-discovery helpers (unchanged)
+    // ──────────────────────────────────────────────────────────────
 
     private static String findDefaultVirtualBoxPath() {
         String[] commonPaths = new String[] {
@@ -97,15 +168,5 @@ public final class AppConfig {
             }
         }
         return "";
-    }
-
-    public static boolean isVirtualBoxPathValid() {
-        String path = getVirtualBoxPath();
-        return path != null && !path.isBlank() && new File(path).isFile();
-    }
-
-    public static void setVirtualBoxPath(String path) {
-        properties.setProperty(VBOX_PATH_PROPERTY, path == null ? "" : path.trim());
-        save();
     }
 }

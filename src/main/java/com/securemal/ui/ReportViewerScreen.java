@@ -1,5 +1,6 @@
 package com.securemal.ui;
 
+import com.securemal.config.AppConfig;
 import com.securemal.config.Config;
 import com.securemal.models.AnalysisReport;
 import com.securemal.services.ReportService;
@@ -171,7 +172,7 @@ public class ReportViewerScreen extends JPanel {
         setBackground(new Color(13, 13, 26));
         setOpaque(true);
 
-        System.out.println("DEBUG: buildUI called with report: " + report.getFileType());
+        // report loaded — proceed to build sections
         
         if (mainContainer == null) {
             mainContainer = new JPanel() {
@@ -200,39 +201,69 @@ public class ReportViewerScreen extends JPanel {
         }
 
         buildHeader(report);
-        System.out.println("DEBUG: after buildHeader, count: " + mainContainer.getComponentCount());
 
-        // Add notice if dynamic analysis is missing
+
+        // Inform user about analysis mode (static-only vs dynamic)
         if (report.getAnalysisType() == null || !report.getAnalysisType().toLowerCase().contains("dynamic")) {
-            JPanel noticePanel = new JPanel(new BorderLayout());
-            noticePanel.setBackground(new Color(255, 193, 7)); // yellow
-            noticePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-            noticePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-            noticePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, noticePanel.getPreferredSize().height));
+            boolean vboxFound = AppConfig.isVirtualBoxPathValid();
+            Color noticeBg = vboxFound ? new Color(20, 50, 90) : new Color(80, 40, 0);
+            Color noticeBorder = vboxFound ? new Color(70, 130, 200) : new Color(243, 156, 18);
 
-            JLabel noticeLabel = new JLabel("<html><body style='width:100%; font-family:Segoe UI; font-size:12px; color:#000000;'>"
-                + "Dynamic analysis unavailable — VirtualBox VM not configured or not yet run. Showing static analysis results only."
-                + "</body></html>");
-            noticeLabel.setForeground(Color.BLACK);
-            noticeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            JPanel noticePanel = new JPanel(new BorderLayout(10, 0));
+            noticePanel.setBackground(noticeBg);
+            noticePanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 4, 0, 0, noticeBorder),
+                new EmptyBorder(10, 12, 10, 12)
+            ));
+            noticePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            noticePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+
+            String noticeText;
+            if (vboxFound) {
+                noticeText = "<html><body style='font-family:Segoe UI; font-size:12px; color:#c8daf5;'>"
+                    + "<b>Static analysis results.</b> VirtualBox is installed — use the ‘Dynamic Analysis’ button on the dashboard to add real-time behavioural data."
+                    + "</body></html>";
+            } else {
+                noticeText = "<html><body style='font-family:Segoe UI; font-size:12px; color:#ffd080;'>"
+                    + "<b>Static analysis results only.</b> VirtualBox is not installed "
+                    + "or VM '" + AppConfig.getVmName() + "' is not configured. "
+                    + "Dynamic analysis is unavailable."
+                    + "</body></html>";
+            }
+
+            JLabel noticeLabel = new JLabel(noticeText);
             noticeLabel.setOpaque(false);
             noticePanel.add(noticeLabel, BorderLayout.CENTER);
+
+            if (!vboxFound) {
+                JButton setupBtn = new JButton("Setup Guide");
+                setupBtn.setBackground(new Color(243, 156, 18));
+                setupBtn.setForeground(Color.BLACK);
+                setupBtn.setOpaque(true);
+                setupBtn.setBorderPainted(false);
+                setupBtn.setFocusPainted(false);
+                setupBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                setupBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                setupBtn.addActionListener(e ->
+                    VirtualBoxSetupDialog.show(
+                        (java.awt.Frame) SwingUtilities.getWindowAncestor(this)));
+                noticePanel.add(setupBtn, BorderLayout.EAST);
+            }
+
             mainContainer.add(noticePanel);
             mainContainer.add(Box.createRigidArea(new Dimension(0, 10)));
         }
 
         mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
         buildRiskScore(report);
-        System.out.println("DEBUG: after buildRiskScore, count: " + mainContainer.getComponentCount());
         mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
         buildSummary(report);
-        System.out.println("DEBUG: after buildSummary, count: " + mainContainer.getComponentCount());
         mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
         buildTimeline(report);
-        System.out.println("DEBUG: after buildTimeline, count: " + mainContainer.getComponentCount());
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
+        buildDynamicSection(report);
         mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
         buildTechDetails(report);
-        System.out.println("DEBUG: after buildTechDetails, count: " + mainContainer.getComponentCount());
 
         // FIX C: Create scrollPane and set viewport LAST (after all content added)
         scrollPane = new JScrollPane();
@@ -470,6 +501,193 @@ public class ReportViewerScreen extends JPanel {
         mainContainer.add(panel);
     }
 
+    /**
+     * Renders the Dynamic Analysis section when the report was produced by a full
+     * dynamic run (analysis_type contains "dynamic"). Shows a distinct blue header
+     * and lists any dynamic timeline events separately from the static timeline.
+     * When the report is static-only, this method renders an explanatory card
+     * rather than an empty section.
+     */
+    private void buildDynamicSection(AnalysisReport report) {
+        boolean isDynamic = report.getAnalysisType() != null
+                && report.getAnalysisType().toLowerCase().contains("dynamic");
+
+        JPanel sectionPanel = new JPanel();
+        sectionPanel.setLayout(new BoxLayout(sectionPanel, BoxLayout.Y_AXIS));
+        sectionPanel.setOpaque(false);
+        sectionPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // Section heading
+        JLabel heading = new JLabel(isDynamic ? "🟢  Dynamic Analysis Results" : "⚪  Dynamic Analysis");
+        heading.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        heading.setForeground(isDynamic ? new Color(0, 200, 150) : new Color(120, 120, 140));
+        heading.setBorder(new EmptyBorder(0, 0, 12, 0));
+        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
+        sectionPanel.add(heading);
+
+        if (!isDynamic) {
+            // Show a "not run" explanation card
+            JPanel card = new JPanel(new BorderLayout(10, 0));
+            card.setBackground(new Color(20, 25, 45));
+            card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 4, 0, 0, new Color(70, 80, 120)),
+                new EmptyBorder(14, 14, 14, 14)
+            ));
+            card.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, Short.MAX_VALUE));
+
+            boolean vboxFound = AppConfig.isVirtualBoxPathValid();
+            String explanation = vboxFound
+                ? "<html><body style='font-family:Segoe UI; font-size:12px; color:#a0a0b0;'>"
+                    + "Dynamic analysis was not run for this file. "
+                    + "<b style='color:#e0e0e0;'>VirtualBox is installed</b> — use the "
+                    + "<i>Dynamic Analysis</i> button on the dashboard to run the file inside VM "
+                    + "<b style='color:#c8daf5;'>" + AppConfig.getVmName() + "</b> "
+                    + "and capture real-time behaviour.<br><br>"
+                    + "<span style='color:#707080;'>Dynamic results will appear here after a successful run.</span>"
+                    + "</body></html>"
+                : "<html><body style='font-family:Segoe UI; font-size:12px; color:#a0a0b0;'>"
+                    + "Dynamic analysis requires VirtualBox to be installed and a clean VM snapshot to be configured. "
+                    + "Click <b style='color:#ffd080;'>Setup Guide</b> to get started."
+                    + "</body></html>";
+
+            JLabel expLabel = new JLabel(explanation);
+            card.add(expLabel, BorderLayout.CENTER);
+
+            if (!vboxFound) {
+                JButton setupBtn = new JButton("Setup Guide");
+                setupBtn.setBackground(new Color(243, 156, 18));
+                setupBtn.setForeground(Color.BLACK);
+                setupBtn.setOpaque(true);
+                setupBtn.setBorderPainted(false);
+                setupBtn.setFocusPainted(false);
+                setupBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                setupBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                setupBtn.addActionListener(e ->
+                    VirtualBoxSetupDialog.show(
+                        (java.awt.Frame) SwingUtilities.getWindowAncestor(this)));
+                card.add(setupBtn, BorderLayout.EAST);
+            }
+
+            sectionPanel.add(card);
+        } else {
+            // Parse and display dynamic-only events (those with a real timestamp, not "static analysis")
+            List<Map<String, String>> allEvents = JsonUtil.parseTimelineArray(report.getTimelineJson());
+            if (allEvents == null) allEvents = new java.util.ArrayList<>();
+
+            java.util.List<Map<String, String>> dynEvents = new java.util.ArrayList<>();
+            for (Map<String, String> ev : allEvents) {
+                String ts = ev.getOrDefault("timestamp", "static analysis");
+                if (!"static analysis".equalsIgnoreCase(ts.trim())) {
+                    dynEvents.add(ev);
+                }
+            }
+
+            if (dynEvents.isEmpty()) {
+                JLabel noEvents = new JLabel(
+                    "<html><body style='color:#a0a0b0; font-style:italic;'>"
+                    + "Dynamic analysis completed but no behavioural events were captured."
+                    + "</body></html>"
+                );
+                noEvents.setAlignmentX(Component.LEFT_ALIGNMENT);
+                noEvents.setBorder(new EmptyBorder(10, 10, 10, 10));
+                sectionPanel.add(noEvents);
+            } else {
+                JLabel countLabel = new JLabel(
+                    "<html><body style='font-family:Segoe UI; font-size:11px; color:#a0d0b0;'>"
+                    + dynEvents.size() + " behavioural event(s) captured at runtime"
+                    + "</body></html>"
+                );
+                countLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                countLabel.setBorder(new EmptyBorder(0, 0, 10, 0));
+                sectionPanel.add(countLabel);
+
+                for (Map<String, String> event : dynEvents) {
+                    String severity  = event.getOrDefault("severity", "low");
+                    String timestamp = event.getOrDefault("timestamp", "");
+                    String plainMsg  = event.getOrDefault("plain_message", "");
+                    String whatMeans = event.getOrDefault("what_this_means", "");
+
+                    Color cardBg     = new Color(10, 35, 55);
+                    Color borderCol  = new Color(0, 130, 200);
+                    switch (severity.toLowerCase()) {
+                        case "high", "critical" -> {
+                            cardBg    = new Color(45, 0, 0);
+                            borderCol = new Color(233, 69, 96);
+                        }
+                        case "medium" -> {
+                            cardBg    = new Color(45, 34, 0);
+                            borderCol = new Color(243, 156, 18);
+                        }
+                        default -> {}
+                    }
+
+                    JPanel card = new JPanel(new BorderLayout(0, 6));
+                    card.setBackground(cardBg);
+                    card.setOpaque(true);
+                    card.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 4, 0, 0, borderCol),
+                        BorderFactory.createEmptyBorder(10, 12, 10, 12)
+                    ));
+                    card.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+
+                    JPanel content = new JPanel();
+                    content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+                    content.setOpaque(false);
+
+                    JLabel timeLabel = new JLabel(
+                        "<html>" + com.securemal.ui.components.Icons.severityBadge(severity)
+                        + "  \u23F1 " + timestamp + "</html>"
+                    );
+                    timeLabel.setForeground(Color.WHITE);
+                    timeLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                    timeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                    JTextArea msgArea = new JTextArea(plainMsg);
+                    msgArea.setLineWrap(true);
+                    msgArea.setWrapStyleWord(true);
+                    msgArea.setEditable(false);
+                    msgArea.setOpaque(false);
+                    msgArea.setForeground(Color.WHITE);
+                    msgArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                    msgArea.setBorder(BorderFactory.createEmptyBorder());
+                    msgArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    msgArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+
+                    content.add(timeLabel);
+                    content.add(Box.createVerticalStrut(4));
+                    content.add(msgArea);
+
+                    if (!whatMeans.isBlank() && !whatMeans.equals(plainMsg)) {
+                        JTextArea infoArea = new JTextArea("\u2139 " + whatMeans);
+                        infoArea.setLineWrap(true);
+                        infoArea.setWrapStyleWord(true);
+                        infoArea.setEditable(false);
+                        infoArea.setOpaque(false);
+                        infoArea.setForeground(new Color(160, 160, 176));
+                        infoArea.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+                        infoArea.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+                        infoArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        infoArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+                        content.add(infoArea);
+                    }
+
+                    card.add(content, BorderLayout.CENTER);
+
+                    JPanel wrapper = new JPanel(new BorderLayout());
+                    wrapper.setOpaque(false);
+                    wrapper.add(card, BorderLayout.CENTER);
+                    wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+                    wrapper.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+                    sectionPanel.add(wrapper);
+                }
+            }
+        }
+
+        mainContainer.add(sectionPanel);
+    }
+
     private void buildTimeline(AnalysisReport report) {
         JPanel timelinePanel = new JPanel();
         timelinePanel.setLayout(new BoxLayout(timelinePanel, BoxLayout.Y_AXIS));
@@ -485,8 +703,6 @@ public class ReportViewerScreen extends JPanel {
         timelinePanel.add(title);
 
         List<Map<String, String>> events = JsonUtil.parseTimelineArray(report.getTimelineJson());
-        timelinePanel.removeAll();
-        timelinePanel.add(title);
         
         if (events == null || events.isEmpty()) {
             JLabel empty = new JLabel(

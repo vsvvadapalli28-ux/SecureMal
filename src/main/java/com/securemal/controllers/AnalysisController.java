@@ -57,8 +57,6 @@ public class AnalysisController {
         }
         File projectRoot = getProjectRoot();
         pb.directory(projectRoot);
-        System.out.println("[AnalysisController] Working dir: " + projectRoot.getAbsolutePath());
-        System.out.println("[AnalysisController] Command: " + String.join(" ", command));
         Process process = pb.start();
 
         StringBuilder output = new StringBuilder();
@@ -91,11 +89,22 @@ public class AnalysisController {
         }
 
         String result = output.toString().trim();
-        System.out.println("[AnalysisController] Output length: " + result.length() + " chars");
         if (result.isEmpty()) {
             throw new RuntimeException("Python script returned empty output. stderr: " + stderr);
         }
         return result;
+    }
+
+    /**
+     * Returns the list of registered VirtualBox VM names.
+     * Exposed publicly so the UI can populate a VM-selection dropdown.
+     */
+    public static List<String> getAvailableVMs() throws IOException, InterruptedException {
+        String vboxPath = AppConfig.getVirtualBoxPath();
+        if (vboxPath == null || vboxPath.isBlank() || !new java.io.File(vboxPath).isFile()) {
+            return new ArrayList<>();
+        }
+        return listRegisteredVirtualMachines(vboxPath);
     }
 
     private static List<String> listRegisteredVirtualMachines(String vboxPath) throws IOException, InterruptedException {
@@ -213,8 +222,8 @@ public class AnalysisController {
         javax.swing.SwingWorker<Void, Void> worker = new javax.swing.SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
-                String vmName = "SecureMal-Clean";
-                String snapshotName = "Clean";
+                String vmName       = AppConfig.getVmName();
+                String snapshotName = AppConfig.getSnapshotName();
                 validateVirtualBoxEnvironment(vmName, snapshotName);
                 String filePath = getFilePath(fileId);
 
@@ -269,9 +278,19 @@ public class AnalysisController {
                     } else if (cause instanceof RuntimeException) {
                         String msg = cause.getMessage();
                         if (msg != null && msg.contains("not registered")) {
-                            showMessage(dashboard, "Dynamic Analysis requires a configured VirtualBox installation and a VM named 'SecureMal-Clean' with a snapshot named 'Clean'.\n\n"
-                                    + msg + "\n\nStatic analysis results are still available.",
-                                    "Dynamic Analysis Unavailable", JOptionPane.WARNING_MESSAGE);
+                            String vmName = AppConfig.getVmName();
+                            showMessage(dashboard,
+                                "Dynamic Analysis requires a registered VirtualBox VM.\n\n"
+                                + "Configured VM: '" + vmName + "'\n"
+                                + msg + "\n\n"
+                                + "Use the 'VM Setup' button on the dashboard or change the VM name in the Setup Guide.",
+                                "Dynamic Analysis Unavailable", JOptionPane.WARNING_MESSAGE);
+                        } else if (msg != null && msg.contains("snapshot")) {
+                            showMessage(dashboard,
+                                "Dynamic Analysis requires a clean snapshot on the configured VM.\n\n"
+                                + msg + "\n\n"
+                                + "Restore or create a snapshot named '" + AppConfig.getSnapshotName() + "' on your VM.",
+                                "Dynamic Analysis Unavailable", JOptionPane.WARNING_MESSAGE);
                         } else if (msg != null && msg.contains("VirtualBox path is not configured")) {
                             showMessage(dashboard, "Dynamic Analysis requires a configured VirtualBox installation. "
                                     + "Please set virtualbox.path in securemal.properties or VBOXMANAGE first.\n\n"

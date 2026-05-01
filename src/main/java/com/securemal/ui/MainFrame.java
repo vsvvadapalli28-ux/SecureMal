@@ -52,7 +52,6 @@ public class MainFrame extends JFrame {
     private ReportViewerScreen reportScreen;
 
     public void showReport(int fileId) {
-        System.out.println("DEBUG: showReport called with fileId: " + fileId);
         if (reportScreen != null) {
             reportScreen.clearMainContainer();
             mainPanel.remove(reportScreen);

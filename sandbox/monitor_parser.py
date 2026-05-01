@@ -74,19 +74,22 @@ def parse_sysmon_evtx(evtx_path):
                     target_str = event_data.get("DestinationIp", "") + ":" + event_data.get("DestinationPort", "")
                 
                 if target_str:
-                    # Translate
+                    # Translate against known indicators
                     lower_target = target_str.lower()
-                    for key, (msg, severity) in TRANSLATION_TABLE.items():
+                    for key, entry in TRANSLATION_TABLE.items():
                         if key in lower_target:
+                            msg         = entry[0]
+                            severity    = entry[1]
+                            explanation = entry[2] if len(entry) > 2 else msg
                             timeline.append({
                                 "timestamp": timestamp,
                                 "severity": severity,
                                 "icon": ICONS.get(severity, "🟢"),
                                 "plain_message": msg,
-                                "what_this_means": msg,
-                                "raw_event": target_str[:200] # truncate
+                                "what_this_means": explanation,
+                                "raw_event": target_str[:200]  # truncate
                             })
-                            # Only record highest severity/first match per event to avoid spam
+                            # Only record first match per event to avoid spam
                             break
     except Exception as e:
         print(f"Error parsing evtx: {str(e)}", file=sys.stderr)

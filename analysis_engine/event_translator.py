@@ -1,30 +1,129 @@
 import datetime
 
+# Each entry: keyword -> (plain_message, severity, what_this_means)
+# plain_message: what the file does, in plain English
+# what_this_means: why this is dangerous / context for a student reader
 TRANSLATION_TABLE = {
-    "createremotethread": ("The uploaded file can secretly inject itself into another running program.", "high"),
-    "virtualallocex": ("The uploaded file can reserve hidden memory inside other programs.", "high"),
-    "writeprocessmemory": ("The uploaded file can write its own code into another program's memory.", "high"),
-    "setwindowshookex": ("The uploaded file can secretly record everything typed on the keyboard.", "high"),
-    "getasynckeystate": ("The uploaded file can monitor which keys are pressed in real time.", "high"),
-    "regsetvalueex": ("The uploaded file can add itself to Windows startup.", "high"),
-    "shellexecute": ("The uploaded file can silently launch other programs in the background.", "high"),
-    "winexec": ("The uploaded file can silently launch other programs in the background.", "high"),
-    "powershell": ("The uploaded file can run PowerShell scripts — often misused by malware.", "high"),
-    "internetopenurl": ("The uploaded file can download content from the internet silently.", "high"),
-    "urldownloadtofile": ("The uploaded file can download and save files from the internet.", "high"),
-    "socket": ("The uploaded file can open a secret network connection to a remote server.", "high"),
-    "connect": ("The uploaded file can open a secret network connection to a remote server.", "high"),
-    "ransom": ("The uploaded file may be ransomware that locks your files for payment.", "high"),
-    "encrypt": ("The uploaded file may be ransomware that locks your files for payment.", "high"),
-    "bitcoin": ("The uploaded file references cryptocurrency, used for ransom payments.", "high"),
-    "wallet": ("The uploaded file references cryptocurrency, used for ransom payments.", "high"),
-    "cmd.exe": ("The uploaded file can open a Command Prompt to run hidden commands.", "medium"),
-    "ntcreatefile": ("The uploaded file can create new files on your computer silently.", "medium"),
-    "regopenkeyex": ("The uploaded file can read sensitive Windows registry settings.", "medium"),
-    "http://": ("The uploaded file contains a web address suggesting remote server contact.", "medium"),
-    "https://": ("The uploaded file contains a web address suggesting remote server contact.", "medium"),
-    "upx": ("The uploaded file is compressed to hide its contents — an evasion technique.", "medium"),
-    "mpress": ("The uploaded file is compressed to hide its contents — an evasion technique.", "medium")
+    "createremotethread": (
+        "The uploaded file can secretly inject itself into another running program.",
+        "high",
+        "Legitimate software rarely needs this. Malware uses it to hide inside trusted processes like explorer.exe."
+    ),
+    "virtualallocex": (
+        "The uploaded file can reserve hidden memory inside other programs.",
+        "high",
+        "Reserving memory in a foreign process is a classic step in process injection — a stealth technique used by malware."
+    ),
+    "writeprocessmemory": (
+        "The uploaded file can write its own code into another program's memory.",
+        "high",
+        "This allows malware to run its own code while disguised as a legitimate application."
+    ),
+    "setwindowshookex": (
+        "The uploaded file can secretly record everything typed on the keyboard.",
+        "high",
+        "Keyloggers use this to steal passwords, credit card numbers, and personal messages."
+    ),
+    "getasynckeystate": (
+        "The uploaded file can monitor which keys are pressed in real time.",
+        "high",
+        "Combined with screen capture, this is a core capability of spyware and credential stealers."
+    ),
+    "regsetvalueex": (
+        "The uploaded file can add itself to Windows startup.",
+        "high",
+        "Persisting via the registry means the malware survives reboots and keeps running automatically."
+    ),
+    "shellexecute": (
+        "The uploaded file can silently launch other programs in the background.",
+        "high",
+        "This is used to download and execute second-stage payloads without the user noticing."
+    ),
+    "winexec": (
+        "The uploaded file can silently launch other programs in the background.",
+        "high",
+        "An older API for executing commands — still widely abused by malware droppers."
+    ),
+    "powershell": (
+        "The uploaded file can run PowerShell scripts — often misused by malware.",
+        "high",
+        "PowerShell is a powerful scripting tool. Malware often uses it to download payloads or disable security software."
+    ),
+    "internetopenurl": (
+        "The uploaded file can download content from the internet silently.",
+        "high",
+        "Downloading additional code at runtime lets malware bypass antivirus that only scanned the original file."
+    ),
+    "urldownloadtofile": (
+        "The uploaded file can download and save files from the internet.",
+        "high",
+        "A common dropper technique: download an encrypted payload and execute it after bypassing initial scanning."
+    ),
+    "socket": (
+        "The uploaded file can open a secret network connection to a remote server.",
+        "high",
+        "Used for command-and-control (C2): the attacker can send instructions and steal data."
+    ),
+    "connect": (
+        "The uploaded file can open a secret network connection to a remote server.",
+        "high",
+        "Outbound connections to unknown servers may indicate data exfiltration or remote control."
+    ),
+    "ransom": (
+        "The uploaded file may be ransomware that locks your files for payment.",
+        "high",
+        "Ransomware encrypts your personal files and demands payment to restore access."
+    ),
+    "encrypt": (
+        "The uploaded file may be ransomware that locks your files for payment.",
+        "high",
+        "Encryption combined with other malware indicators suggests ransomware or data-destruction capabilities."
+    ),
+    "bitcoin": (
+        "The uploaded file references cryptocurrency, used for ransom payments.",
+        "high",
+        "Ransomware typically requests payment in Bitcoin or Monero to avoid tracing by authorities."
+    ),
+    "wallet": (
+        "The uploaded file references cryptocurrency, used for ransom payments.",
+        "high",
+        "Wallet references suggest this file may redirect crypto payments or steal wallet credentials."
+    ),
+    "cmd.exe": (
+        "The uploaded file can open a Command Prompt to run hidden commands.",
+        "medium",
+        "Spawning cmd.exe is a common way to run further commands, delete logs, or change system settings."
+    ),
+    "ntcreatefile": (
+        "The uploaded file can create new files on your computer silently.",
+        "medium",
+        "Silently dropping new files is used to install additional components or store stolen data."
+    ),
+    "regopenkeyex": (
+        "The uploaded file can read sensitive Windows registry settings.",
+        "medium",
+        "The registry stores system configuration, installed software, and sometimes credentials."
+    ),
+    "http://": (
+        "The uploaded file contains a web address suggesting remote server contact.",
+        "medium",
+        "Hardcoded URLs can point to command-and-control servers or malware download locations."
+    ),
+    "https://": (
+        "The uploaded file contains a web address suggesting remote server contact.",
+        "medium",
+        "Encrypted HTTPS connections can hide malicious traffic from basic network monitoring."
+    ),
+    "upx": (
+        "The uploaded file is compressed to hide its contents — an evasion technique.",
+        "medium",
+        "Packing with UPX makes it harder for antivirus tools to analyse the real payload inside."
+    ),
+    "mpress": (
+        "The uploaded file is compressed to hide its contents — an evasion technique.",
+        "medium",
+        "Like UPX, MPRESS packing is used to obfuscate malicious code and slow down analysis."
+    )
 }
 
 CREDENTIALS_TABLE = {
@@ -46,14 +145,14 @@ ICONS = {
 def translate_strings(suspicious_strings, entropy, pe_info):
     timeline = []
     seen_strings = set()
-    
-    def add_event(message, severity, raw):
+
+    def add_event(message, severity, raw, explanation=""):
         timeline.append({
             "timestamp": "static analysis",
             "severity": severity,
             "icon": ICONS.get(severity, "🟢"),
             "plain_message": message,
-            "what_this_means": message,
+            "what_this_means": explanation if explanation else message,
             "raw_event": raw
         })
 
@@ -64,17 +163,34 @@ def translate_strings(suspicious_strings, entropy, pe_info):
         seen_strings.add(normalized)
 
         if normalized in TRANSLATION_TABLE:
-            msg, sev = TRANSLATION_TABLE[normalized]
-            add_event(msg, sev, s)
+            entry = TRANSLATION_TABLE[normalized]
+            msg, sev = entry[0], entry[1]
+            explanation = entry[2] if len(entry) > 2 else ""
+            add_event(msg, sev, s, explanation)
         elif normalized in CREDENTIALS_TABLE:
             app_name = CREDENTIALS_TABLE[normalized]
-            add_event(f"The uploaded file tried to get credentials for {app_name}.", "high", s)
+            add_event(
+                f"The uploaded file tried to get credentials for {app_name}.",
+                "high",
+                s,
+                f"Accessing {app_name} credential storage is a strong indicator of password theft or account takeover."
+            )
 
     if entropy is not None and entropy > 7.0:
-        add_event("The uploaded file contents are heavily scrambled, hiding its true purpose.", "medium", f"entropy={entropy}")
-        
+        add_event(
+            "The uploaded file contents are heavily scrambled, hiding its true purpose.",
+            "medium",
+            f"entropy={entropy}",
+            "High Shannon entropy means the data is compressed or encrypted, often to hide malicious code from scanners."
+        )
+
     if isinstance(pe_info, dict) and pe_info.get("is_packed", False):
-        add_event("The uploaded file is compressed to hide its contents — an evasion technique.", "medium", "is_packed=True")
+        add_event(
+            "The uploaded file is compressed to hide its contents — an evasion technique.",
+            "medium",
+            "is_packed=True",
+            "Packed executables unpack themselves at runtime, making static analysis much harder."
+        )
 
     # Order: high -> medium -> low
     severity_order = {"high": 0, "medium": 1, "low": 2}
